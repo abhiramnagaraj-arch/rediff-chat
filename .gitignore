@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.seed_venv/
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Logs and databases
+*.log
+*.sqlite3
+inspect.json
+
+# Certificates and Keys
+certs/*.crt
+certs/*.key
+certs/*.der
+certs/*.pem
+!certs/README.md
+
+# OS generated files
+.DS_Store
+Thumbs.db

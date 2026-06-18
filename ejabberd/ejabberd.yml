@@ -1,0 +1,113 @@
+hosts:
+  - "v1.chat.rediff.com"
+  - "v2.chat.rediff.com"
+  - "v3.chat.rediff.com"
+  - "v4.chat.rediff.com"
+
+host_config:
+  "v1.chat.rediff.com":
+    sql_type: pgsql
+    sql_server: "rediff_postgres"
+    sql_database: "rediff_v1_db"
+    sql_username: "rediff"
+    sql_password: "secure_password_here_change_me"
+    sql_pool_size: 5
+  "v2.chat.rediff.com":
+    sql_type: pgsql
+    sql_server: "rediff_postgres"
+    sql_database: "rediff_v2_db"
+    sql_username: "rediff"
+    sql_password: "secure_password_here_change_me"
+    sql_pool_size: 5
+  "v3.chat.rediff.com":
+    sql_type: pgsql
+    sql_server: "rediff_postgres"
+    sql_database: "rediff_v3_db"
+    sql_username: "rediff"
+    sql_password: "secure_password_here_change_me"
+    sql_pool_size: 5
+  "v4.chat.rediff.com":
+    sql_type: pgsql
+    sql_server: "rediff_postgres"
+    sql_database: "rediff_v4_db"
+    sql_username: "rediff"
+    sql_password: "secure_password_here_change_me"
+    sql_pool_size: 5
+
+auth_method: [external]
+extauth_program: "python3 /home/ejabberd/conf/extauth.py"
+auth_use_cache: false
+fqdn: "v1.chat.rediff.com"
+
+loglevel: 4
+
+acl:
+  admin:
+    user:
+      - "t1.admin@v1.chat.rediff.com"
+
+access_rules:
+  local:
+    allow: all
+  admin:
+    allow: admin
+
+api_permissions:
+  "admin access":
+    from:
+      - ejabberd_ctl
+      - ejabberd_web_admin
+      - mod_http_api
+    who:
+      - acl: admin
+    what:
+      - "*"
+
+listen:
+  - port: 5222
+    ip: "::"
+    module: ejabberd_c2s
+    starttls: true
+    certfile: "/home/ejabberd/conf/server.pem"
+
+  - port: 5280
+    ip: "0.0.0.0"
+    module: ejabberd_http
+    request_handlers:
+      /admin: ejabberd_web_admin
+      /api: mod_http_api
+      /bosh: mod_bosh
+      /ws: ejabberd_http_ws
+
+  - port: 5444
+    ip: "0.0.0.0"
+    module: ejabberd_http
+    request_handlers:
+      /upload: mod_http_upload
+
+modules:
+  mod_disco: {}
+  mod_roster: {}
+  mod_offline: {}
+  mod_bosh: {}
+  mod_ping: {}
+  mod_pubsub: {}
+  mod_vcard: {}
+  mod_version: {}
+  mod_tenant_isolate: {}
+
+  mod_muc:
+    host: "conference.@HOST@"
+
+  mod_mam:
+
+    db_type: sql
+    assume_mam_usage: true
+    default: always
+
+  mod_http_upload:
+    host: "upload.@HOST@"
+    docroot: "/home/ejabberd/upload"
+    put_url: "http://@HOST@:5444/upload"
+    max_size: 52428800
+    access: local

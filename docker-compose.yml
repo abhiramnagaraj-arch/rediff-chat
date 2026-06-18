@@ -1,0 +1,125 @@
+version: "3.8"
+
+services:
+  rediff_postgres:
+    image: postgres:16-alpine
+    container_name: rediff_postgres
+    restart: unless-stopped
+    env_file:
+      - ./postgres/.env
+    ports:
+      - "5433:5432"
+    volumes:
+      - rediff_pg_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rediff_network
+
+  rediff_auth_service:
+    build:
+      context: ./auth_service
+    container_name: rediff_auth_service
+    restart: unless-stopped
+    env_file:
+      - ./postgres/.env
+    environment:
+      POSTGRES_USER: rediff
+      POSTGRES_PASSWORD: secure_password_here_change_me
+      POSTGRES_DB: rediff_chat
+      POSTGRES_HOST: rediff_postgres
+      POSTGRES_PORT: "5432"
+    ports:
+      - "8000:8000"
+    depends_on:
+      rediff_postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/health\").read()'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rediff_network
+
+  rediff_ejabberd_a:
+    build:
+      context: ./ejabberd
+      dockerfile: Dockerfile
+    container_name: rediff_ejabberd_a
+    hostname: rediff_ejabberd_a
+    restart: unless-stopped
+    ports:
+      - "5222:5222"
+      - "5280:5280"
+    environment:
+      ERLANG_NODE_ARG: "ejabberd@rediff_ejabberd_a"
+      ERLANG_COOKIE: "rediff_cluster_cookie"
+    volumes:
+      - ./ejabberd/ejabberd.yml:/home/ejabberd/conf/ejabberd.yml:ro
+      - ./certs/server.pem:/home/ejabberd/conf/server.pem:ro
+      - ejabberd_data_a:/home/ejabberd/database
+    depends_on:
+      rediff_auth_service:
+        condition: service_healthy
+    networks:
+      - rediff_network
+
+  rediff_ejabberd_b:
+    build:
+      context: ./ejabberd
+      dockerfile: Dockerfile
+    container_name: rediff_ejabberd_b
+    hostname: rediff_ejabberd_b
+    restart: unless-stopped
+    ports:
+      - "5223:5222"
+      - "5281:5280"
+    environment:
+      ERLANG_NODE_ARG: "ejabberd@rediff_ejabberd_b"
+      ERLANG_COOKIE: "rediff_cluster_cookie"
+    volumes:
+      - ./ejabberd/ejabberd.yml:/home/ejabberd/conf/ejabberd.yml:ro
+      - ./certs/server.pem:/home/ejabberd/conf/server.pem:ro
+      - ejabberd_data_b:/home/ejabberd/database
+    depends_on:
+      - rediff_ejabberd_a
+    networks:
+      - rediff_network
+
+  rediff_ejabberd_c:
+    build:
+      context: ./ejabberd
+      dockerfile: Dockerfile
+    container_name: rediff_ejabberd_c
+    hostname: rediff_ejabberd_c
+    restart: unless-stopped
+    ports:
+      - "5224:5222"
+      - "5282:5280"
+    environment:
+      ERLANG_NODE_ARG: "ejabberd@rediff_ejabberd_c"
+      ERLANG_COOKIE: "rediff_cluster_cookie"
+    volumes:
+      - ./ejabberd/ejabberd.yml:/home/ejabberd/conf/ejabberd.yml:ro
+      - ./certs/server.pem:/home/ejabberd/conf/server.pem:ro
+      - ejabberd_data_c:/home/ejabberd/database
+    depends_on:
+      - rediff_ejabberd_a
+    networks:
+      - rediff_network
+
+volumes:
+  rediff_pg_data:
+  ejabberd_data_a:
+  ejabberd_data_b:
+  ejabberd_data_c:
+
+networks:
+  rediff_network:
+    name: rediff_network
+    driver: bridge
