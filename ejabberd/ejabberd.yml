@@ -87,20 +87,27 @@ listen:
 
 modules:
   mod_disco: {}
-  mod_roster: {}
-  mod_offline: {}
+  mod_roster:
+    db_type: sql
+  mod_offline:
+    db_type: sql
+  mod_vcard:
+    db_type: sql
+  mod_pubsub:
+    db_type: sql
+  mod_last:
+    db_type: sql
   mod_bosh: {}
   mod_ping: {}
-  mod_pubsub: {}
-  mod_vcard: {}
   mod_version: {}
   mod_tenant_isolate: {}
 
   mod_muc:
     host: "conference.@HOST@"
+    default_room_options:
+      persistent: true
 
   mod_mam:
-
     db_type: sql
     assume_mam_usage: true
     default: always

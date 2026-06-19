@@ -57,8 +57,8 @@ def test_multitenant_api():
     # 4. Test authentication for Wipro user
     print("[*] Authenticating Wipro user...")
     res = requests.post(f"{BASE_URL}/auth", json={
-        "username": wipro_user["username"],
-        "domain": "wipro.chat",
+        "user": wipro_user["username"],
+        "server": "wipro.chat",
         "password": "securepassword"
     })
     if res.json().get("success"):
@@ -69,8 +69,8 @@ def test_multitenant_api():
     # 5. Test authentication for Infosys user
     print("[*] Authenticating Infosys user...")
     res = requests.post(f"{BASE_URL}/auth", json={
-        "username": infosys_user["username"],
-        "domain": "infosys.chat",
+        "user": infosys_user["username"],
+        "server": "infosys.chat",
         "password": "anotherpassword"
     })
     if res.json().get("success"):
@@ -81,8 +81,8 @@ def test_multitenant_api():
     # 6. Test authentication with incorrect tenant password
     print("[*] Authenticating Wipro user with Infosys password (should fail)...")
     res = requests.post(f"{BASE_URL}/auth", json={
-        "username": wipro_user["username"],
-        "domain": "wipro.chat",
+        "user": wipro_user["username"],
+        "server": "wipro.chat",
         "password": "anotherpassword"
     })
     if not res.json().get("success"):
@@ -108,8 +108,8 @@ def test_multitenant_api():
 
     print("[*] Authenticating soft deleted Infosys user (should fail)...")
     res = requests.post(f"{BASE_URL}/auth", json={
-        "username": infosys_user["username"],
-        "domain": "infosys.chat",
+        "user": infosys_user["username"],
+        "server": "infosys.chat",
         "password": "anotherpassword"
     })
     if not res.json().get("success"):

@@ -74,14 +74,14 @@ def authenticate_user(req: schemas.AuthRequest, db: Session = Depends(database.g
         return False
         
     if user.auth.account_locked:
-        logger.warning(f"Account locked for user: {req.username}")
+        logger.warning(f"Account locked for user: {req.user}")
         return schemas.AuthResponse(success=False)
 
     # Verify password
     try:
         is_valid = pwd_context.verify(req.password, user.auth.password_hash)
     except Exception as e:
-        logger.error(f"Error verifying password hash for user {req.username}: {e}")
+        logger.error(f"Error verifying password hash for user {req.user}: {e}")
         return schemas.AuthResponse(success=False)
     
     if is_valid:

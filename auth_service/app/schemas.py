@@ -1,11 +1,13 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional
 from uuid import UUID
 from datetime import datetime
 
 class AuthRequest(BaseModel):
-    user: str
-    server: str
+    model_config = ConfigDict(populate_by_name=True)
+
+    user: str = Field(alias="username")
+    server: str = Field(alias="domain")
     password: str
 
 class AuthResponse(BaseModel):

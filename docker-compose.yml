@@ -53,9 +53,7 @@ services:
     container_name: rediff_ejabberd_a
     hostname: rediff_ejabberd_a
     restart: unless-stopped
-    ports:
-      - "5222:5222"
-      - "5280:5280"
+    # Ports removed here, will be exposed via HAProxy
     environment:
       ERLANG_NODE_ARG: "ejabberd@rediff_ejabberd_a"
       ERLANG_COOKIE: "rediff_cluster_cookie"
@@ -76,9 +74,7 @@ services:
     container_name: rediff_ejabberd_b
     hostname: rediff_ejabberd_b
     restart: unless-stopped
-    ports:
-      - "5223:5222"
-      - "5281:5280"
+    # Ports removed
     environment:
       ERLANG_NODE_ARG: "ejabberd@rediff_ejabberd_b"
       ERLANG_COOKIE: "rediff_cluster_cookie"
@@ -98,9 +94,7 @@ services:
     container_name: rediff_ejabberd_c
     hostname: rediff_ejabberd_c
     restart: unless-stopped
-    ports:
-      - "5224:5222"
-      - "5282:5280"
+    # Ports removed
     environment:
       ERLANG_NODE_ARG: "ejabberd@rediff_ejabberd_c"
       ERLANG_COOKIE: "rediff_cluster_cookie"
@@ -110,6 +104,23 @@ services:
       - ejabberd_data_c:/home/ejabberd/database
     depends_on:
       - rediff_ejabberd_a
+    networks:
+      - rediff_network
+
+  haproxy:
+    image: haproxy:2.8-alpine
+    container_name: rediff_haproxy
+    restart: unless-stopped
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "5222:5222" # XMPP C2S
+      - "5280:5280" # XMPP HTTP/WebSockets
+      - "8404:8404" # Stats Dashboard
+    depends_on:
+      - rediff_ejabberd_a
+      - rediff_ejabberd_b
+      - rediff_ejabberd_c
     networks:
       - rediff_network
 

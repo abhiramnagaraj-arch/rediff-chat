@@ -6,7 +6,7 @@ from passlib.context import CryptContext
 # Configuration
 VHOSTS = ["v1", "v2", "v3", "v4"]
 TENANTS = ["t1", "t2", "t3", "t4"]
-USERS = ["u1", "u2"]
+USERS = ["u1", "u2", "u3"]
 PASSWORD = "password123"
 
 # Common DB Config
@@ -36,10 +36,6 @@ def seed_central_db():
             tenant_id = str(uuid.uuid4())
             tenant_name = f"Tenant {t_id.upper()} on {vhost.upper()}"
             tenant_slug = f"{vhost}_{t_id}" # Make it unique across vhosts
-            # Wait, the main.py logic expects:
-            # tenant_slug = parts[0] (which is 't1')
-            # assigned_vhost = req.server (which is 'v1.chat.rediff.com')
-            # So tenant_slug + assigned_vhost is the unique combo.
             
             cur.execute(
                 "INSERT INTO tenants (id, name, domain, tenant_slug, assigned_vhost, status) VALUES (%s, %s, %s, %s, %s, %s)",
@@ -48,10 +44,6 @@ def seed_central_db():
             
             for u_id in USERS:
                 user_id = str(uuid.uuid4())
-                # The auth service expects username to be the PART AFTER the dot
-                # parts = req.user.split(".") -> tenant_slug = parts[0], username_part = parts[1:]
-                # So if JID is t1.u1@v1..., then username_part is 'u1'
-                
                 cur.execute(
                     "INSERT INTO users (id, tenant_id, username, email, status) VALUES (%s, %s, %s, %s, %s)",
                     (user_id, tenant_id, u_id, f"{t_id}.{u_id}@{vhost_domain}", 'ACTIVE')
@@ -85,7 +77,6 @@ def seed_vhost_db(vhost):
         user_ids = []
         for u_id in USERS:
             u_uuid = str(uuid.uuid4())
-            # Ejabberd sees the FULL username (t1.u1)
             full_username = f"{t_id}.{u_id}"
             
             cur.execute(
@@ -93,7 +84,6 @@ def seed_vhost_db(vhost):
                 (u_uuid, full_username, f"{full_username}@{vhost_domain}", 'ACTIVE')
             )
             
-            # Even though we use external auth, some modules might like having these
             cur.execute(
                 "INSERT INTO user_auth (user_id, password_hash) VALUES (%s, %s)",
                 (u_uuid, PASSWORD_HASH)
@@ -101,16 +91,14 @@ def seed_vhost_db(vhost):
             
             user_ids.append(full_username)
             
-        # Mutual Roster
-        u1, u2 = user_ids[0], user_ids[1]
-        cur.execute(
-            "INSERT INTO rosterusers (username, jid, nick, subscription, ask, askmessage, server, subscribe, type, approved) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            (u1, f"{u2}@{vhost_domain}", u2, 'B', 'N', '', 'N', '', 'item', True)
-        )
-        cur.execute(
-            "INSERT INTO rosterusers (username, jid, nick, subscription, ask, askmessage, server, subscribe, type, approved) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            (u2, f"{u1}@{vhost_domain}", u1, 'B', 'N', '', 'N', '', 'item', True)
-        )
+        # Mutual Roster (everyone in tenant knows everyone else)
+        for i, u_from in enumerate(user_ids):
+            for j, u_to in enumerate(user_ids):
+                if i != j:
+                    cur.execute(
+                        "INSERT INTO rosterusers (username, jid, nick, subscription, ask, askmessage, server, subscribe, type, approved) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                        (u_from, f"{u_to}@{vhost_domain}", u_to, 'B', 'N', '', 'N', '', 'item', True)
+                    )
 
     conn.commit()
     cur.close()

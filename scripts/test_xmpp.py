@@ -30,7 +30,11 @@ def test_xmpp(username, domain, password):
         print(f"\n[-] ERROR: {e}")
         print("\n[*] Dumping the last 50 lines of Ejabberd logs to find the internal Erlang crash...")
         try:
-            result = subprocess.run(["docker", "logs", "--tail", "50", "rediff_ejabberd"], capture_output=True, text=True)
+            result = subprocess.run(
+                ["docker", "compose", "logs", "--tail", "50", "rediff_ejabberd_a", "rediff_ejabberd_b", "rediff_ejabberd_c"],
+                capture_output=True,
+                text=True
+            )
             print("\n=== DOCKER LOGS ===")
             print(result.stderr)
             print(result.stdout)

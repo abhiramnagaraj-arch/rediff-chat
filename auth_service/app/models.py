@@ -7,10 +7,13 @@ from datetime import datetime, timezone
 
 class Tenant(Base):
     __tablename__ = "tenants"
+    __table_args__ = (
+        UniqueConstraint("tenant_slug", "assigned_vhost", name="tenants_tenant_slug_assigned_vhost_key"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
-    tenant_slug = Column(String, unique=True, nullable=False)
+    tenant_slug = Column(String, nullable=False)
     assigned_vhost = Column(String, nullable=False)
     status = Column(String, default="ACTIVE", nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -61,4 +64,3 @@ class UserProfile(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="profile")
-
