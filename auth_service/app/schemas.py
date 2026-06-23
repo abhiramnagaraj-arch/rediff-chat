@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
-from typing import Optional
+from typing import Optional, Any
 from uuid import UUID
 from datetime import datetime
 
@@ -40,3 +40,11 @@ class UserResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class OIDCIdentityResponse(BaseModel):
+    subject: str
+    username: Optional[str] = None
+    email: Optional[str] = None
+    tenant_slug: Optional[str] = None
+    claims: dict[str, Any]

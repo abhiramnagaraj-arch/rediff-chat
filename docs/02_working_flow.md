@@ -15,6 +15,7 @@ sequenceDiagram
     participant Ejabberd as Ejabberd Core
     participant ExtAuth as extauth.py (Worker)
     participant AuthAPI as FastAPI Service
+    participant Keycloak as Keycloak
     participant PG as PostgreSQL
 
     Note over App, Ejabberd: 1. TCP Connection & TLS Handshake
@@ -25,12 +26,13 @@ sequenceDiagram
     
     Note over ExtAuth, AuthAPI: 3. HTTP Verification Request
     ExtAuth->>AuthAPI: POST /auth HTTP/1.1<br/>{username: "w.10001", domain: "chat.rediff.com"}
-    
-    AuthAPI->>PG: SELECT password_hash FROM user_auth WHERE user_id = (SELECT id FROM users WHERE jid_localpart='w.10001')
-    PG-->>AuthAPI: Returns Bcrypt Hash: $2b$12$xyz...
-    
-    Note over AuthAPI: 4. Cryptographic Validation
-    AuthAPI->>AuthAPI: Compute Bcrypt(password). Does it match hash?
+
+    AuthAPI->>PG: Lookup tenant/user metadata and status
+    PG-->>AuthAPI: Returns tenant mapping and active flags
+
+    Note over AuthAPI,Keycloak: 4. Credential Validation
+    AuthAPI->>Keycloak: Direct grant token request for w.10001
+    Keycloak-->>AuthAPI: Returns signed access token if password is valid
     
     alt Password is Correct
         AuthAPI-->>ExtAuth: HTTP 200 OK {"success": true}
@@ -41,7 +43,6 @@ sequenceDiagram
         AuthAPI-->>ExtAuth: HTTP 401 Unauthorized
         ExtAuth-->>Ejabberd: STDOUT: [False] (Binary 2-byte packet)
         Ejabberd-->>App: <failure><not-authorized/></failure>
-        AuthAPI->>PG: Increment failed_attempts for security audit
     end
 ```
 
