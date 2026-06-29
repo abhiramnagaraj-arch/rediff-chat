@@ -1,0 +1,1540 @@
+/* Modern Rediff Chat skin for Converse.js */
+:root,
+body.rediff-chat,
+.conversejs {
+    --rc-red: #d81f3d;
+    --rc-red-2: #b91632;
+    --rc-red-soft: #fff0f3;
+    --rc-ink: #121826;
+    --rc-ink-2: #202637;
+    --rc-panel: #ffffff;
+    --rc-panel-2: #f7f8fb;
+    --rc-chat: #242737;
+    --rc-chat-2: #1f2230;
+    --rc-line: #e5e8ef;
+    --rc-line-dark: rgba(255, 255, 255, 0.1);
+    --rc-muted: #6f7788;
+    --rc-soft: #f3f5f9;
+    --rc-green: #28c76f;
+    --rc-blue: #3b82f6;
+    --rc-purple: #8b5cf6;
+    --rc-shadow: 0 18px 45px rgba(18, 24, 38, 0.12);
+    --rc-shadow-soft: 0 8px 22px rgba(18, 24, 38, 0.08);
+    --heading-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --normal_font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --chat-color: var(--rc-red);
+    --chat-color-hover: var(--rc-red-2);
+    --link-color: var(--rc-blue);
+    --success-color: var(--rc-green);
+    --message-font-size: 14px;
+    --chatbox-border-radius: 0;
+}
+
+html,
+body.rediff-chat {
+    margin: 0;
+    min-height: 100%;
+    background: #eef1f6;
+    color: var(--rc-ink);
+    font-family: var(--normal_font);
+}
+
+body.rediff-chat .rediff-shell {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 18% 0%, rgba(216, 31, 61, 0.14), transparent 30%),
+        linear-gradient(135deg, #f7f9fd 0%, #eef1f6 44%, #fdf4f6 100%);
+}
+
+body.rediff-chat .rediff-topbar {
+    min-height: 0;
+    height: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+}
+
+.conversejs,
+.conversejs * {
+    box-sizing: border-box;
+    font-family: var(--normal_font) !important;
+    letter-spacing: 0;
+}
+
+.conversejs {
+    color: var(--rc-ink);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.conversejs converse-chats.converse-fullscreen,
+body.rediff-chat #conversejs {
+    height: 100vh !important;
+    background: transparent !important;
+}
+
+.conversejs .box-flyout {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Left app rail / roster */
+.conversejs #controlbox,
+.conversejs #controlbox .box-flyout,
+.conversejs #controlbox .controlbox-pane {
+    background: rgba(255, 255, 255, 0.94) !important;
+    color: var(--rc-ink) !important;
+    border-right: 1px solid var(--rc-line) !important;
+    box-shadow: 18px 0 45px rgba(18, 24, 38, 0.08) !important;
+}
+
+.conversejs #controlbox .userinfo {
+    margin: 0;
+    padding: 24px 24px 20px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%) !important;
+    border-bottom: 1px solid var(--rc-line) !important;
+}
+
+.conversejs #controlbox .show-profile {
+    display: flex !important;
+    align-items: center;
+    gap: 14px;
+    min-height: 56px;
+    color: var(--rc-ink) !important;
+    text-decoration: none !important;
+}
+
+.conversejs #controlbox .username {
+    color: var(--rc-ink) !important;
+    font-size: 16px !important;
+    font-weight: 760 !important;
+}
+
+.conversejs #controlbox .xmpp-status {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--rc-line);
+    border-radius: 14px;
+    background: var(--rc-panel-2);
+}
+
+.conversejs #controlbox .xmpp-status__msg,
+.conversejs #controlbox .change-status {
+    color: var(--rc-muted) !important;
+    font-size: 12px !important;
+    font-weight: 500;
+}
+
+.conversejs #controlbox .xmpp-status::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--rc-green);
+    box-shadow: 0 0 0 4px rgba(40, 199, 111, 0.12);
+    vertical-align: middle;
+}
+
+.conversejs #controlbox .controlbox-section {
+    padding: 18px 14px 4px;
+}
+
+.conversejs #controlbox .controlbox-heading,
+.conversejs #controlbox .controlbox-heading a {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 36px;
+    margin: 0 0 8px;
+    padding: 0 6px !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: #2d3444 !important;
+    font-size: 12px !important;
+    font-weight: 780 !important;
+    text-transform: uppercase;
+    text-decoration: none !important;
+}
+
+.conversejs #controlbox .controlbox-heading__btn,
+.conversejs #controlbox .list-item-action,
+.conversejs #controlbox .contact-actions,
+.conversejs #controlbox converse-dropdown .dropdown-toggle,
+.conversejs #controlbox .toggle-type,
+.conversejs .chatbox-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 11px !important;
+    background: transparent !important;
+    color: var(--rc-muted) !important;
+    transition: background-color 0.16s ease, color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.conversejs #controlbox .controlbox-heading__btn:hover,
+.conversejs #controlbox .list-item-action:hover,
+.conversejs #controlbox .contact-actions:hover,
+.conversejs #controlbox converse-dropdown .dropdown-toggle:hover,
+.conversejs #controlbox .toggle-type:hover,
+.conversejs .chatbox-btn:hover {
+    background: var(--rc-red-soft) !important;
+    color: var(--rc-red) !important;
+    transform: translateY(-1px);
+}
+
+.conversejs converse-icon svg,
+.conversejs .fa svg {
+    fill: currentColor !important;
+}
+
+.conversejs #controlbox .list-item {
+    position: relative;
+    min-height: 58px;
+    margin: 3px 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 16px !important;
+    background: transparent !important;
+    overflow: hidden;
+    transition: background-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.conversejs #controlbox .open-chat,
+.conversejs #controlbox .open-room,
+.conversejs #controlbox .pending-xmpp-contact {
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 58px;
+    padding: 9px 12px !important;
+    color: var(--rc-ink) !important;
+    text-decoration: none !important;
+}
+
+.conversejs #controlbox .list-item:hover {
+    background: #f4f6fb !important;
+}
+
+.conversejs #controlbox .list-item.open,
+.conversejs #controlbox .list-item.active,
+.conversejs #controlbox .list-item.selected {
+    background: linear-gradient(135deg, var(--rc-red), #ef4765) !important;
+    box-shadow: 0 12px 28px rgba(216, 31, 61, 0.24) !important;
+}
+
+.conversejs #controlbox .list-item.open::before,
+.conversejs #controlbox .list-item.active::before,
+.conversejs #controlbox .list-item.selected::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 14px;
+    bottom: 14px;
+    width: 4px;
+    border-radius: 0 8px 8px 0;
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.conversejs #controlbox .contact-name,
+.conversejs #controlbox .available-room span:last-child,
+.conversejs #controlbox .pending-contact-name {
+    color: var(--rc-ink) !important;
+    font-size: 14px !important;
+    font-weight: 680 !important;
+}
+
+.conversejs #controlbox .list-item.open .contact-name,
+.conversejs #controlbox .list-item.active .contact-name,
+.conversejs #controlbox .list-item.selected .contact-name,
+.conversejs #controlbox .list-item.open .open-chat,
+.conversejs #controlbox .list-item.active .open-chat,
+.conversejs #controlbox .list-item.selected .open-chat {
+    color: #ffffff !important;
+}
+
+.conversejs #controlbox .contact-name--offline,
+.conversejs #controlbox .jid,
+.conversejs #controlbox .room-info,
+.conversejs #controlbox .room-info p {
+    color: var(--rc-muted) !important;
+    font-size: 12px !important;
+}
+
+.conversejs #controlbox .list-item.open .contact-name--offline,
+.conversejs #controlbox .list-item.active .contact-name--offline,
+.conversejs #controlbox .list-item.selected .contact-name--offline,
+.conversejs #controlbox .list-item.open .jid,
+.conversejs #controlbox .list-item.active .jid,
+.conversejs #controlbox .list-item.selected .jid {
+    color: rgba(255, 255, 255, 0.78) !important;
+}
+
+/* Avatars and presence */
+.conversejs converse-avatar,
+.conversejs converse-avatar .avatar,
+.conversejs .avatar {
+    border-radius: 50% !important;
+    overflow: hidden;
+}
+
+.conversejs #controlbox converse-avatar,
+.conversejs #controlbox converse-avatar .avatar,
+.conversejs #controlbox .avatar {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+}
+
+.conversejs .chat-head converse-avatar,
+.conversejs .chat-head converse-avatar .avatar,
+.conversejs .chat-head .avatar {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+}
+
+.conversejs converse-avatar .avatar-initials,
+.conversejs converse-avatar image,
+.conversejs .avatar-initials {
+    border-radius: 50% !important;
+    font-weight: 760 !important;
+}
+
+.conversejs .chat-status.chat-status--avatar {
+    position: absolute !important;
+    left: 42px !important;
+    bottom: 9px !important;
+    width: 11px !important;
+    height: 11px !important;
+    margin: 0 !important;
+    border: 2px solid #ffffff !important;
+    border-radius: 50% !important;
+    background: #b8bfcc !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    box-shadow: 0 1px 4px rgba(18, 24, 38, 0.2);
+}
+
+.conversejs .chat-status--online.chat-status--avatar {
+    background: var(--rc-green) !important;
+}
+
+.conversejs .chat-status--busy.chat-status--avatar,
+.conversejs .chat-status--away.chat-status--avatar {
+    background: #f59e0b !important;
+}
+
+/* Chat surface */
+.conversejs .chatbox .box-flyout,
+.conversejs .chatroom .box-flyout {
+    background: var(--rc-chat) !important;
+}
+
+.conversejs .chatbox .chat-head,
+.conversejs .chatroom .chat-head {
+    min-height: 64px !important;
+    max-height: 64px !important;
+    padding: 10px 24px !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 58%, #fff1f4 100%) !important;
+    color: var(--rc-ink) !important;
+    box-shadow: 0 12px 28px rgba(18, 24, 38, 0.08) !important;
+}
+
+.conversejs .chatbox .chatbox-title,
+.conversejs .chatroom .chatbox-title,
+.conversejs .chatbox .chatbox-title--row,
+.conversejs .chatroom .chatbox-title--row {
+    display: flex !important;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    width: 100%;
+}
+
+.conversejs .chatbox .chatbox-title__text,
+.conversejs .chatbox .chatbox-title__text .user,
+.conversejs .chatroom .chatbox-title__text,
+.conversejs .chatroom .chatbox-title__text .user,
+.conversejs .chatbox .show-msg-author-modal,
+.conversejs .chatroom .show-msg-author-modal {
+    color: var(--rc-ink) !important;
+    font-size: 17px !important;
+    font-weight: 790 !important;
+    text-decoration: none !important;
+}
+
+.conversejs .chatbox .chat-head__desc,
+.conversejs .chatroom .chat-head__desc {
+    color: var(--rc-muted) !important;
+    font-size: 12px !important;
+    font-weight: 500;
+}
+
+.conversejs .chatbox .chatbox-title__buttons,
+.conversejs .chatroom .chatbox-title__buttons {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.conversejs .chatbox .chatbox-btn,
+.conversejs .chatroom .chatbox-btn {
+    color: var(--rc-muted) !important;
+}
+
+.conversejs .chatbox .chat-body,
+.conversejs .chatroom .chat-body,
+.conversejs .chat-content,
+.conversejs .chat-content__messages {
+    background:
+        radial-gradient(circle at 82% 8%, rgba(216, 31, 61, 0.08), transparent 22%),
+        linear-gradient(180deg, var(--rc-chat) 0%, var(--rc-chat-2) 100%) !important;
+}
+
+.conversejs .chatbox .chat-content__messages,
+.conversejs .chatroom .chat-content__messages {
+    padding: 24px 28px 28px !important;
+}
+
+.conversejs .message.chat-msg {
+    display: flex !important;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    margin: 14px 0 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+.conversejs .message.chat-msg:hover {
+    background: transparent !important;
+}
+
+.conversejs .message.chat-msg.chat-msg--followup {
+    margin-top: 6px !important;
+}
+
+.conversejs .message.chat-msg .show-msg-author-modal {
+    color: #aeb7ca !important;
+    text-decoration: none !important;
+}
+
+.conversejs .message.chat-msg .show-msg-author-modal converse-avatar,
+.conversejs .message.chat-msg .show-msg-author-modal converse-avatar .avatar,
+.conversejs .message.chat-msg .show-msg-author-modal .avatar {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content {
+    display: flex !important;
+    flex-direction: column;
+    gap: 5px;
+    width: fit-content;
+    max-width: min(68%, 760px) !important;
+    min-width: 0;
+    margin: 0 !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--them {
+    margin-right: auto !important;
+    align-items: flex-start !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me {
+    margin-left: auto !important;
+    align-items: flex-end !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__heading {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    min-height: 18px;
+    margin: 0 !important;
+    padding: 0 5px !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__author,
+.conversejs .message.chat-msg .chat-msg__author a {
+    color: #f56b82 !important;
+    font-size: 13px !important;
+    font-weight: 760 !important;
+    text-decoration: none !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__author {
+    display: none !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__time {
+    color: #9da8bd !important;
+    font-size: 11px !important;
+    font-weight: 560 !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__body,
+.conversejs .message.chat-msg .chat-msg__message {
+    display: flex !important;
+    width: 100%;
+    min-width: 0;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__body,
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__message {
+    justify-content: flex-end !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__body--wrapper {
+    display: inline-flex !important;
+    align-items: flex-end;
+    gap: 8px;
+    width: auto !important;
+    min-width: 52px;
+    max-width: 100%;
+    padding: 10px 13px !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 18px 18px 18px 6px !important;
+    background: #ffffff !important;
+    color: var(--rc-ink) !important;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__body--wrapper {
+    border-color: transparent !important;
+    border-radius: 18px 18px 6px 18px !important;
+    background: linear-gradient(135deg, var(--rc-red), #f0445f) !important;
+    color: #ffffff !important;
+    box-shadow: 0 12px 28px rgba(216, 31, 61, 0.28) !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__text,
+.conversejs .message.chat-msg .chat-msg__text *,
+.conversejs .message.chat-msg .chat-msg__subject,
+.conversejs .message.chat-msg .chat-msg__body--wrapper p,
+.conversejs .message.chat-msg .chat-msg__body--wrapper span:not(.chat-msg__time) {
+    color: var(--rc-ink) !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    line-height: 1.42 !important;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__text,
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__text *,
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__subject,
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__body--wrapper p,
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__body--wrapper span:not(.chat-msg__time) {
+    color: #ffffff !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__time {
+    color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__receipt,
+.conversejs .message.chat-msg .chat-msg__receipt * {
+    color: var(--rc-green) !important;
+    fill: currentColor !important;
+    font-size: 12px !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__receipt,
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__receipt * {
+    color: #b8ffd8 !important;
+}
+
+.conversejs .date-separator,
+.conversejs .chat-date-separator,
+.conversejs .message.date-separator {
+    margin: 26px 0 18px !important;
+    color: #d7deeb !important;
+    font-size: 12px !important;
+    font-weight: 680 !important;
+}
+
+.conversejs .date-separator::before,
+.conversejs .date-separator::after,
+.conversejs .chat-date-separator::before,
+.conversejs .chat-date-separator::after {
+    border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Composer */
+.conversejs converse-message-form,
+.conversejs converse-muc-message-form {
+    display: block;
+    background: var(--rc-chat-2) !important;
+}
+
+.conversejs .chat-message-form {
+    position: relative;
+    margin: 0 !important;
+    padding: 14px 18px 16px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(31, 34, 48, 0.98) !important;
+    box-shadow: 0 -14px 32px rgba(0, 0, 0, 0.16) !important;
+}
+
+.conversejs .chat-toolbar {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    margin: 0 0 8px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    color: #b9c2d4 !important;
+}
+
+.conversejs .chat-toolbar .toolbar-buttons,
+.conversejs .chat-toolbar > span:last-child {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+}
+
+.conversejs .chat-toolbar .btn,
+.conversejs .chat-toolbar .dropdown-toggle,
+.conversejs .chat-toolbar .toggle-emojis,
+.conversejs .chat-toolbar button[type="button"] {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 12px !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #c6cede !important;
+}
+
+.conversejs .chat-toolbar .btn:hover,
+.conversejs .chat-toolbar .dropdown-toggle:hover,
+.conversejs .chat-toolbar .toggle-emojis:hover,
+.conversejs .chat-toolbar button[type="button"]:hover {
+    background: rgba(216, 31, 61, 0.18) !important;
+    color: #ffffff !important;
+}
+
+.conversejs .chat-textarea,
+.conversejs textarea.chat-textarea {
+    width: 100% !important;
+    min-height: 50px !important;
+    max-height: 150px;
+    padding: 14px 58px 14px 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.13) !important;
+    border-radius: 18px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #ffffff !important;
+    caret-color: #ffffff;
+    resize: none !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+.conversejs .chat-textarea::placeholder {
+    color: #aeb7ca !important;
+    opacity: 1 !important;
+}
+
+.conversejs .chat-textarea:focus,
+.conversejs .chat-textarea.correcting {
+    border-color: rgba(216, 31, 61, 0.72) !important;
+    background: rgba(255, 255, 255, 0.11) !important;
+    box-shadow: 0 0 0 4px rgba(216, 31, 61, 0.16) !important;
+    outline: none !important;
+}
+
+.conversejs .send-button {
+    position: absolute !important;
+    right: 18px;
+    bottom: 17px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 46px !important;
+    height: 46px !important;
+    border: 0 !important;
+    border-radius: 16px !important;
+    background: linear-gradient(135deg, var(--rc-red), #ff4d68) !important;
+    color: #ffffff !important;
+    box-shadow: 0 14px 28px rgba(216, 31, 61, 0.32) !important;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+
+.conversejs .send-button:hover {
+    transform: translateY(-2px) !important;
+    filter: saturate(1.05);
+    box-shadow: 0 18px 34px rgba(216, 31, 61, 0.38) !important;
+}
+
+.conversejs .send-button:disabled,
+.conversejs .send-button.disabled {
+    background: rgba(255, 255, 255, 0.16) !important;
+    color: #9aa5b8 !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.conversejs .message-limit {
+    color: #aeb7ca !important;
+    font-size: 11px !important;
+}
+
+/* Forms, menus, modals */
+.conversejs input[type="text"],
+.conversejs input[type="password"],
+.conversejs input[type="email"],
+.conversejs input[type="search"],
+.conversejs select,
+.conversejs textarea:not(.chat-textarea) {
+    border: 1px solid var(--rc-line) !important;
+    border-radius: 13px !important;
+    background: #ffffff !important;
+    color: var(--rc-ink) !important;
+    box-shadow: none !important;
+}
+
+.conversejs input:focus,
+.conversejs select:focus,
+.conversejs textarea:not(.chat-textarea):focus {
+    border-color: var(--rc-red) !important;
+    box-shadow: 0 0 0 4px rgba(216, 31, 61, 0.12) !important;
+    outline: none !important;
+}
+
+.conversejs .dropdown-menu,
+.conversejs .modal-content {
+    border: 1px solid var(--rc-line) !important;
+    border-radius: 18px !important;
+    background: #ffffff !important;
+    box-shadow: var(--rc-shadow) !important;
+    overflow: hidden;
+}
+
+.conversejs .dropdown-item {
+    color: var(--rc-ink) !important;
+    font-size: 14px !important;
+}
+
+.conversejs .dropdown-item:hover,
+.conversejs .dropdown-item:focus {
+    background: var(--rc-red-soft) !important;
+    color: var(--rc-red) !important;
+}
+
+.conversejs .btn-primary,
+.conversejs button[type="submit"],
+.conversejs input[type="submit"] {
+    border: 0 !important;
+    border-radius: 13px !important;
+    background: linear-gradient(135deg, var(--rc-red), #ef4765) !important;
+    color: #ffffff !important;
+    font-weight: 720 !important;
+    box-shadow: 0 12px 24px rgba(216, 31, 61, 0.24) !important;
+}
+
+.conversejs a:focus-visible,
+.conversejs button:focus-visible,
+.conversejs .btn:focus-visible,
+.conversejs textarea:focus-visible,
+.conversejs input:focus-visible {
+    outline: 3px solid rgba(216, 31, 61, 0.34) !important;
+    outline-offset: 2px !important;
+}
+
+@media screen and (max-width: 900px) {
+    .conversejs #controlbox,
+    .conversejs #controlbox .box-flyout,
+    .conversejs #controlbox .controlbox-pane {
+        box-shadow: none !important;
+    }
+
+    .conversejs .chatbox .chat-head,
+    .conversejs .chatroom .chat-head {
+        padding: 10px 14px !important;
+    }
+
+    .conversejs .chatbox .chat-content__messages,
+    .conversejs .chatroom .chat-content__messages {
+        padding: 18px 14px 22px !important;
+    }
+
+    .conversejs .message.chat-msg .chat-msg__content {
+        max-width: 82% !important;
+    }
+
+    .conversejs .chat-message-form {
+        padding: 12px !important;
+    }
+
+    .conversejs .send-button {
+        right: 12px;
+        bottom: 13px;
+    }
+}
+
+/* Screenshot refinement pass: tighter, calmer, and more product-like. */
+body.rediff-chat #conversejs,
+.conversejs converse-chats.converse-fullscreen {
+    overflow: hidden !important;
+}
+
+.conversejs #controlbox,
+.conversejs #controlbox .box-flyout,
+.conversejs #controlbox .controlbox-pane {
+    background: #fbfcff !important;
+}
+
+.conversejs #controlbox .userinfo {
+    padding: 22px 22px 18px !important;
+    background: #ffffff !important;
+}
+
+.conversejs #controlbox .show-profile {
+    min-height: 48px !important;
+    gap: 12px !important;
+}
+
+.conversejs #controlbox .xmpp-status {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    margin-top: 12px !important;
+    padding: 9px 12px !important;
+    border-radius: 12px !important;
+    background: #f6f8fc !important;
+}
+
+.conversejs #controlbox .xmpp-status::before {
+    display: none !important;
+}
+
+.conversejs #controlbox .xmpp-status .chat-status,
+.conversejs #controlbox .xmpp-status .chat-status svg {
+    width: 8px !important;
+    height: 8px !important;
+}
+
+.conversejs #controlbox .controlbox-section {
+    padding: 14px 14px 2px !important;
+}
+
+.conversejs #controlbox .controlbox-heading,
+.conversejs #controlbox .controlbox-heading a {
+    min-height: 30px !important;
+    margin-bottom: 5px !important;
+    color: #32394a !important;
+    font-size: 11px !important;
+}
+
+.conversejs #controlbox .list-item {
+    min-height: 50px !important;
+    margin: 2px 0 !important;
+    border-radius: 14px !important;
+}
+
+.conversejs #controlbox .open-chat,
+.conversejs #controlbox .open-room,
+.conversejs #controlbox .pending-xmpp-contact {
+    min-height: 50px !important;
+    padding: 7px 11px !important;
+}
+
+.conversejs #controlbox .list-item.open,
+.conversejs #controlbox .list-item.active,
+.conversejs #controlbox .list-item.selected {
+    background: linear-gradient(135deg, #e52c4c, #f04462) !important;
+    box-shadow: 0 10px 22px rgba(216, 31, 61, 0.2) !important;
+}
+
+.conversejs #controlbox converse-avatar,
+.conversejs #controlbox converse-avatar .avatar,
+.conversejs #controlbox .avatar {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+}
+
+.conversejs .chat-status.chat-status--avatar {
+    left: 35px !important;
+    bottom: 7px !important;
+    width: 9px !important;
+    height: 9px !important;
+}
+
+.conversejs .chatbox .chat-head,
+.conversejs .chatroom .chat-head {
+    position: relative !important;
+    z-index: 4 !important;
+    min-height: 64px !important;
+    max-height: 64px !important;
+    padding: 10px 28px !important;
+    background: linear-gradient(135deg, #ffffff 0%, #fbfcff 70%, #fff5f7 100%) !important;
+    box-shadow: 0 1px 0 rgba(18, 24, 38, 0.08) !important;
+}
+
+.conversejs .chatbox .chatbox-title__text,
+.conversejs .chatbox .chatbox-title__text .user,
+.conversejs .chatroom .chatbox-title__text,
+.conversejs .chatroom .chatbox-title__text .user {
+    font-size: 16px !important;
+    font-weight: 780 !important;
+}
+
+.conversejs .chatbox .chat-body,
+.conversejs .chatroom .chat-body,
+.conversejs .chat-content,
+.conversejs .chat-content__messages {
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        radial-gradient(circle at 85% 10%, rgba(216, 31, 61, 0.1), transparent 24%),
+        linear-gradient(180deg, #222536 0%, #1f2230 100%) !important;
+    background-size: 48px 48px, auto, auto !important;
+}
+
+.conversejs .chatbox .chat-content__messages,
+.conversejs .chatroom .chat-content__messages {
+    padding: 34px 40px 28px !important;
+}
+
+.conversejs .message.chat-msg {
+    gap: 12px !important;
+    margin-top: 16px !important;
+}
+
+.conversejs .message.chat-msg .show-msg-author-modal converse-avatar,
+.conversejs .message.chat-msg .show-msg-author-modal converse-avatar .avatar,
+.conversejs .message.chat-msg .show-msg-author-modal .avatar {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content {
+    max-width: min(58%, 680px) !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__body--wrapper {
+    min-height: 40px;
+    padding: 10px 14px !important;
+    border: 0 !important;
+    border-radius: 16px 16px 16px 5px !important;
+    background: #ffffff !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.13) !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__body--wrapper {
+    border-radius: 16px 16px 5px 16px !important;
+    background: linear-gradient(135deg, #e82d4e, #f33f5d) !important;
+    box-shadow: 0 12px 26px rgba(232, 45, 78, 0.25) !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__author,
+.conversejs .message.chat-msg .chat-msg__author a {
+    color: #ff6078 !important;
+    font-size: 12px !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__time {
+    color: #aeb8ca !important;
+    font-size: 11px !important;
+}
+
+.conversejs .date-separator,
+.conversejs .chat-date-separator,
+.conversejs .message.date-separator {
+    margin: 30px 0 20px !important;
+    color: #f4f7fb !important;
+    font-size: 12px !important;
+}
+
+.conversejs .date-separator span,
+.conversejs .chat-date-separator span {
+    padding: 6px 12px !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+
+.conversejs .chat-message-form {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 74px;
+    padding: 12px 16px !important;
+    background: #202332 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
+    box-shadow: 0 -10px 26px rgba(0, 0, 0, 0.18) !important;
+}
+
+.conversejs .chat-toolbar {
+    grid-column: 1;
+    grid-row: 1;
+    gap: 6px !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+}
+
+.conversejs .chat-toolbar .btn,
+.conversejs .chat-toolbar .dropdown-toggle,
+.conversejs .chat-toolbar .toggle-emojis,
+.conversejs .chat-toolbar button[type="button"] {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 13px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #d8dfed !important;
+    opacity: 1 !important;
+}
+
+.conversejs .chat-toolbar .btn:disabled,
+.conversejs .chat-toolbar button:disabled {
+    opacity: 0.42 !important;
+}
+
+.conversejs .chat-textarea,
+.conversejs textarea.chat-textarea {
+    grid-column: 2;
+    grid-row: 1;
+    min-height: 52px !important;
+    padding: 14px 16px !important;
+    border-radius: 18px !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+    background: rgba(255, 255, 255, 0.075) !important;
+    color: #f7f9ff !important;
+}
+
+.conversejs .send-button {
+    position: static !important;
+    grid-column: 3;
+    grid-row: 1;
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 46px !important;
+    border-radius: 15px !important;
+    opacity: 1 !important;
+}
+
+.conversejs .send-button:disabled,
+.conversejs .send-button.disabled {
+    opacity: 0.56 !important;
+    background: rgba(255, 255, 255, 0.11) !important;
+}
+
+@media screen and (max-width: 900px) {
+    .conversejs .chatbox .chat-content__messages,
+    .conversejs .chatroom .chat-content__messages {
+        padding: 26px 16px 22px !important;
+    }
+
+    .conversejs .message.chat-msg .chat-msg__content {
+        max-width: 82% !important;
+    }
+
+    .conversejs .chat-message-form {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .conversejs .chat-toolbar {
+        grid-column: 1 / -1;
+    }
+
+    .conversejs .chat-textarea {
+        grid-column: 1;
+        grid-row: 2;
+    }
+
+    .conversejs .send-button {
+        grid-column: 2;
+        grid-row: 2;
+    }
+}
+
+/* Final alignment and visibility pass. */
+.conversejs #controlbox,
+.conversejs #controlbox .box-flyout,
+.conversejs #controlbox .controlbox-pane {
+    background: linear-gradient(180deg, #fff7f9 0%, #f8fafc 48%, #f4f7fb 100%) !important;
+    border-right-color: #e8dce3 !important;
+}
+
+.conversejs #controlbox .userinfo {
+    background: linear-gradient(180deg, #fff9fb 0%, #ffffff 100%) !important;
+}
+
+.conversejs #controlbox .xmpp-status {
+    background: #ffffff !important;
+    border-color: #eadde4 !important;
+    color: #526071 !important;
+}
+
+.conversejs #controlbox .xmpp-status .chat-status,
+.conversejs #controlbox .xmpp-status .chat-status svg,
+.conversejs #controlbox .xmpp-status .chat-status--online,
+.conversejs #controlbox .xmpp-status .chat-status--online svg,
+.conversejs .chat-status--online,
+.conversejs .chat-status--online svg {
+    color: #22c55e !important;
+    fill: #22c55e !important;
+}
+
+.conversejs #controlbox .xmpp-status::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    order: -1;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
+}
+
+.conversejs #controlbox .controlbox-heading,
+.conversejs #controlbox .controlbox-heading a {
+    color: #4a3340 !important;
+}
+
+.conversejs #controlbox .list-item:hover {
+    background: #fff1f5 !important;
+}
+
+.conversejs #controlbox .list-item.open,
+.conversejs #controlbox .list-item.active,
+.conversejs #controlbox .list-item.selected {
+    background: linear-gradient(135deg, #d81f3d, #f04462) !important;
+}
+
+.conversejs .chat-status--online.chat-status--avatar {
+    background: #22c55e !important;
+    color: #22c55e !important;
+}
+
+.conversejs .chat-message-form {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    min-height: 76px !important;
+    padding: 12px 16px !important;
+}
+
+.conversejs .chat-toolbar {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    order: 1 !important;
+}
+
+.conversejs .chat-textarea,
+.conversejs textarea.chat-textarea {
+    flex: 1 1 auto !important;
+    order: 2 !important;
+    min-width: 0 !important;
+    padding-right: 18px !important;
+    background: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.conversejs .send-button {
+    position: absolute !important;
+    right: 16px !important;
+    top: 50% !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+    z-index: 3 !important;
+    background: linear-gradient(135deg, #e82d4e, #ff5b73) !important;
+}
+
+.conversejs .send-button:hover {
+    transform: translateY(-50%) scale(1.04) !important;
+}
+
+.conversejs .chat-message-form:has(.send-button) .chat-textarea,
+.conversejs .chat-message-form:has(.send-button) textarea.chat-textarea {
+    margin-right: 58px !important;
+}
+
+.conversejs .chat-toolbar .btn,
+.conversejs .chat-toolbar .dropdown-toggle,
+.conversejs .chat-toolbar .toggle-emojis,
+.conversejs .chat-toolbar button[type="button"] {
+    background: rgba(255, 255, 255, 0.14) !important;
+    color: #f3f7ff !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.conversejs .chat-toolbar .btn:hover,
+.conversejs .chat-toolbar .dropdown-toggle:hover,
+.conversejs .chat-toolbar .toggle-emojis:hover,
+.conversejs .chat-toolbar button[type="button"]:hover {
+    background: rgba(255, 255, 255, 0.22) !important;
+    color: #ffffff !important;
+}
+
+.conversejs .chat-toolbar converse-icon svg,
+.conversejs .send-button converse-icon svg {
+    fill: currentColor !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me {
+    order: 1 !important;
+}
+
+.conversejs .message.chat-msg:has(.chat-msg__content--me) {
+    justify-content: flex-end !important;
+}
+
+.conversejs .message.chat-msg:has(.chat-msg__content--me) .show-msg-author-modal {
+    order: 2 !important;
+}
+
+.conversejs .message.chat-msg:has(.chat-msg__content--me) .show-msg-author-modal converse-avatar,
+.conversejs .message.chat-msg:has(.chat-msg__content--me) .show-msg-author-modal converse-avatar .avatar,
+.conversejs .message.chat-msg:has(.chat-msg__content--me) .show-msg-author-modal .avatar {
+    display: block !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__heading {
+    align-self: flex-end !important;
+}
+
+@media screen and (max-width: 900px) {
+    .conversejs .chat-message-form {
+        align-items: flex-end !important;
+        flex-wrap: wrap !important;
+    }
+
+    .conversejs .chat-toolbar {
+        width: 100% !important;
+    }
+
+    .conversejs .chat-textarea,
+    .conversejs textarea.chat-textarea {
+        width: 100% !important;
+    }
+}
+
+/* Contrast, shell color, and presence polish pass. */
+:root,
+body.rediff-chat,
+.conversejs {
+    --rc-shell: #211827;
+    --rc-shell-2: #2b1d31;
+    --rc-shell-3: #35223b;
+    --rc-shell-line: rgba(255, 255, 255, 0.1);
+    --rc-shell-text: #f7f2fb;
+    --rc-shell-muted: #c9bdd1;
+    --rc-online: #22c55e;
+    --rc-busy: #ef4444;
+    --rc-away: #f59e0b;
+    --rc-xa: #a78bfa;
+    --rc-offline: #9ca3af;
+}
+
+.conversejs #controlbox,
+.conversejs #controlbox .box-flyout,
+.conversejs #controlbox .controlbox-pane {
+    background: linear-gradient(180deg, var(--rc-shell) 0%, var(--rc-shell-2) 52%, #1c1824 100%) !important;
+    color: var(--rc-shell-text) !important;
+    border-right-color: var(--rc-shell-line) !important;
+    box-shadow: 18px 0 45px rgba(0, 0, 0, 0.22) !important;
+}
+
+.conversejs #controlbox .userinfo {
+    background: linear-gradient(180deg, #312039 0%, var(--rc-shell) 100%) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.conversejs #controlbox .show-profile,
+.conversejs #controlbox .username,
+.conversejs #controlbox .contact-name,
+.conversejs #controlbox .available-room span:last-child,
+.conversejs #controlbox .pending-contact-name,
+.conversejs #controlbox .open-chat,
+.conversejs #controlbox .open-room,
+.conversejs #controlbox .pending-xmpp-contact {
+    color: var(--rc-shell-text) !important;
+}
+
+.conversejs #controlbox .xmpp-status {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: var(--rc-shell-muted) !important;
+}
+
+.conversejs #controlbox .xmpp-status__msg,
+.conversejs #controlbox .change-status,
+.conversejs #controlbox .contact-name--offline,
+.conversejs #controlbox .jid,
+.conversejs #controlbox .room-info,
+.conversejs #controlbox .room-info p {
+    color: var(--rc-shell-muted) !important;
+}
+
+.conversejs #controlbox .controlbox-heading,
+.conversejs #controlbox .controlbox-heading a,
+.conversejs #controlbox .group-toggle,
+.conversejs #controlbox .muc-domain-group-toggle {
+    color: #eadff0 !important;
+}
+
+.conversejs #controlbox .controlbox-heading__btn,
+.conversejs #controlbox .list-item-action,
+.conversejs #controlbox .contact-actions,
+.conversejs #controlbox converse-dropdown .dropdown-toggle,
+.conversejs #controlbox .toggle-type {
+    color: #d8c8e0 !important;
+}
+
+.conversejs #controlbox .controlbox-heading__btn:hover,
+.conversejs #controlbox .list-item-action:hover,
+.conversejs #controlbox .contact-actions:hover,
+.conversejs #controlbox converse-dropdown .dropdown-toggle:hover,
+.conversejs #controlbox .toggle-type:hover,
+.conversejs #controlbox .list-item:hover {
+    background: rgba(255, 255, 255, 0.09) !important;
+    color: #ffffff !important;
+}
+
+.conversejs #controlbox .list-item.open,
+.conversejs #controlbox .list-item.active,
+.conversejs #controlbox .list-item.selected {
+    background: linear-gradient(135deg, #e82d4e, #f15d73) !important;
+    box-shadow: 0 14px 30px rgba(232, 45, 78, 0.28) !important;
+}
+
+.conversejs .chatbox .chat-head,
+.conversejs .chatroom .chat-head {
+    background: linear-gradient(135deg, #211827 0%, #2e2036 58%, #3a223d 100%) !important;
+    color: var(--rc-shell-text) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18) !important;
+}
+
+.conversejs .chatbox .chatbox-title__text,
+.conversejs .chatbox .chatbox-title__text .user,
+.conversejs .chatroom .chatbox-title__text,
+.conversejs .chatroom .chatbox-title__text .user,
+.conversejs .chatbox .show-msg-author-modal,
+.conversejs .chatroom .show-msg-author-modal {
+    color: var(--rc-shell-text) !important;
+}
+
+.conversejs .chatbox .chat-head__desc,
+.conversejs .chatroom .chat-head__desc,
+.conversejs .chatbox .chatbox-btn,
+.conversejs .chatroom .chatbox-btn {
+    color: var(--rc-shell-muted) !important;
+}
+
+.conversejs .chatbox .chatbox-btn:hover,
+.conversejs .chatroom .chatbox-btn:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+}
+
+/* Presence states: roster dots, modal status options, and inline status icons. */
+.conversejs .chat-status--online,
+.conversejs .chat-status--online svg,
+.conversejs #controlbox .xmpp-status .chat-status--online,
+.conversejs #controlbox .xmpp-status .chat-status--online svg,
+.conversejs .modal .chat-status--online,
+.conversejs .modal .chat-status--online svg {
+    color: var(--rc-online) !important;
+    fill: var(--rc-online) !important;
+}
+
+.conversejs .chat-status--online.chat-status--avatar,
+.conversejs #controlbox .xmpp-status::after {
+    background: var(--rc-online) !important;
+    color: var(--rc-online) !important;
+}
+
+.conversejs .chat-status--busy,
+.conversejs .chat-status--dnd,
+.conversejs .chat-status--busy svg,
+.conversejs .chat-status--dnd svg,
+.conversejs .modal .chat-status--busy,
+.conversejs .modal .chat-status--dnd,
+.conversejs .modal .chat-status--busy svg,
+.conversejs .modal .chat-status--dnd svg {
+    color: var(--rc-busy) !important;
+    fill: var(--rc-busy) !important;
+}
+
+.conversejs .chat-status--busy.chat-status--avatar,
+.conversejs .chat-status--dnd.chat-status--avatar {
+    background: var(--rc-busy) !important;
+    color: var(--rc-busy) !important;
+}
+
+.conversejs .chat-status--away,
+.conversejs .chat-status--away svg,
+.conversejs .modal .chat-status--away,
+.conversejs .modal .chat-status--away svg {
+    color: var(--rc-away) !important;
+    fill: var(--rc-away) !important;
+}
+
+.conversejs .chat-status--away.chat-status--avatar {
+    background: var(--rc-away) !important;
+    color: var(--rc-away) !important;
+}
+
+.conversejs .chat-status--xa,
+.conversejs .chat-status--extended-away,
+.conversejs .chat-status--away-for-long,
+.conversejs .chat-status--xa svg,
+.conversejs .chat-status--extended-away svg,
+.conversejs .chat-status--away-for-long svg,
+.conversejs .modal .chat-status--xa,
+.conversejs .modal .chat-status--extended-away,
+.conversejs .modal .chat-status--away-for-long,
+.conversejs .modal .chat-status--xa svg,
+.conversejs .modal .chat-status--extended-away svg,
+.conversejs .modal .chat-status--away-for-long svg {
+    color: var(--rc-xa) !important;
+    fill: var(--rc-xa) !important;
+}
+
+.conversejs .chat-status--xa.chat-status--avatar,
+.conversejs .chat-status--extended-away.chat-status--avatar,
+.conversejs .chat-status--away-for-long.chat-status--avatar {
+    background: var(--rc-xa) !important;
+    color: var(--rc-xa) !important;
+}
+
+.conversejs .chat-status--offline,
+.conversejs .chat-status--unavailable,
+.conversejs .chat-status--offline svg,
+.conversejs .chat-status--unavailable svg {
+    color: var(--rc-offline) !important;
+    fill: var(--rc-offline) !important;
+}
+
+.conversejs .chat-status--offline.chat-status--avatar,
+.conversejs .chat-status--unavailable.chat-status--avatar {
+    background: var(--rc-offline) !important;
+    color: var(--rc-offline) !important;
+}
+
+/* Modal contrast: keep all profile/settings/status words readable. */
+.conversejs .modal-content,
+.conversejs .modal-dialog,
+.conversejs .modal-body,
+.conversejs .modal-footer,
+.conversejs .modal form,
+.conversejs .modal .tab-content,
+.conversejs .modal .tab-pane {
+    color: #1f2937 !important;
+}
+
+.conversejs .modal-header {
+    background: linear-gradient(135deg, #211827, #43234c) !important;
+    color: #ffffff !important;
+}
+
+.conversejs .modal-title,
+.conversejs .modal-header .modal-title,
+.conversejs .modal-header .close,
+.conversejs .modal-header .btn-close,
+.conversejs .modal-header button {
+    color: #ffffff !important;
+}
+
+.conversejs .modal-body,
+.conversejs .modal-footer {
+    background: #ffffff !important;
+}
+
+.conversejs .modal label,
+.conversejs .modal .form-label,
+.conversejs .modal .form-check-label,
+.conversejs .modal .form-text,
+.conversejs .modal p,
+.conversejs .modal small,
+.conversejs .modal span,
+.conversejs .modal div,
+.conversejs .modal li,
+.conversejs .modal dd,
+.conversejs .modal dt {
+    color: #1f2937 !important;
+}
+
+.conversejs .modal .text-muted,
+.conversejs .modal .form-text,
+.conversejs .modal .help-block,
+.conversejs .modal .form-help,
+.conversejs .modal .profile-instructions {
+    color: #5b6472 !important;
+}
+
+.conversejs .modal a,
+.conversejs .modal .nav-link {
+    color: #d81f3d !important;
+}
+
+.conversejs .modal .nav-link.active,
+.conversejs .modal .active > .nav-link,
+.conversejs .modal .btn-primary {
+    color: #ffffff !important;
+}
+
+.conversejs .modal input,
+.conversejs .modal textarea,
+.conversejs .modal select,
+.conversejs .modal .form-control {
+    background: #ffffff !important;
+    color: #111827 !important;
+    border-color: #d8dee8 !important;
+}
+
+.conversejs .modal input::placeholder,
+.conversejs .modal textarea::placeholder {
+    color: #8b94a3 !important;
+}
+
+.conversejs .modal input:disabled,
+.conversejs .modal textarea:disabled,
+.conversejs .modal select:disabled,
+.conversejs .modal .form-control:disabled,
+.conversejs .modal [disabled] {
+    color: #687386 !important;
+    -webkit-text-fill-color: #687386 !important;
+    opacity: 1 !important;
+}
+/* Empty workspace state: shown when no chat is selected/open. */
+body.rediff-chat .rediff-shell,
+body.rediff-chat .rediff-chat-stage,
+body.rediff-chat #conversejs,
+body.rediff-chat #conversejs-bg {
+    background:
+        radial-gradient(circle at 82% 10%, rgba(216, 31, 61, 0.12), transparent 26%),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(180deg, #222536 0%, #1f2230 100%) !important;
+    background-size: auto, 48px 48px, auto !important;
+}
+
+body.rediff-chat .rediff-chat-stage {
+    min-height: 100vh;
+}

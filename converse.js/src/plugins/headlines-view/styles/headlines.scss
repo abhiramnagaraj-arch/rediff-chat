@@ -1,0 +1,55 @@
+.conversejs {
+    converse-headlines-feeds-list {
+        margin-bottom: 1em;
+        display: block;
+    }
+
+    .chatbox {
+        &.headlines {
+            .chat-body {
+                background-color: var(--background-color);
+                .chat-message {
+                    color: var(--headlines-color);
+                }
+                hr {
+                    border-bottom: 2px solid var(--headlines-color);
+                }
+            }
+            .chat-content {
+                height: 100%;
+            }
+        }
+    }
+
+    .message {
+        &.chat-msg {
+            &.headline {
+                .chat-msg__body {
+                    margin-inline-start: 0;
+                }
+            }
+        }
+    }
+
+    #controlbox {
+        .controlbox-section {
+            .controlbox-heading--headline {
+                color: var(--headlines-color);
+            }
+        }
+    }
+
+
+    converse-chats {
+        &.converse-fullscreen {
+            .chatbox.headlines {
+                .box-flyout {
+                    background-color: var(--headlines-color);
+                }
+                .flyout {
+                    border-color: var(--headlines-color);
+                }
+            }
+        }
+    }
+}

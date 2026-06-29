@@ -1,0 +1,90 @@
+.conversejs {
+    .chatbox {
+        .chat-head {
+            display: flex;
+            flex-direction: row;
+            font-size: 100%;
+            margin: 0;
+            padding: 0;
+            position: relative;
+
+            &.chat-head-chatbox {
+                background-color: var(--chat-header-bg-color);
+                border-bottom: 0.15em solid var(--chat-color);
+            }
+
+            .avatar {
+                margin-inline-end: 0.5em;
+            }
+
+            .show-msg-author-modal {
+                color: var(--chat-header-fg-color) !important;
+            }
+
+            .chat-head__desc {
+                color: var(--chat-header-bg-color);
+                font-size: var(--font-size-small);
+                margin: 0;
+                overflow: hidden;
+                padding: 0.5rem 1rem 0.5rem 1rem;
+                text-overflow: ellipsis;
+                width: 100%;
+            }
+
+            .chatbox-title {
+                padding: 0.75rem 1rem 0 1rem;
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+                width: 100%;
+            }
+
+            .chatbox-title--no-desc {
+                padding: 0.75rem 1rem;
+            }
+
+            .chatbox-title--row {
+                display: flex;
+                flex-direction: row;
+                overflow: hidden;
+                width: 100%;
+            }
+
+            .chatbox-title__text {
+                color: var(--chat-header-bg-color);;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .chatbox-title__buttons {
+                flex-direction: row-reverse;
+                flex-wrap: nowrap;
+            }
+
+            .chatbox-btn {
+                &:active {
+                    position: relative;
+                    top: 1px;
+                }
+            }
+
+            converse-dropdown {
+                .dropdown-menu {
+                    converse-icon {
+                        svg {
+                            fill: var(--chat-color);
+                        }
+                    }
+                }
+            }
+
+            .chatbox-btn {
+                converse-icon {
+                    svg {
+                        fill: var(--chat-header-fg-color);
+                    }
+                }
+            }
+        }
+    }
+}

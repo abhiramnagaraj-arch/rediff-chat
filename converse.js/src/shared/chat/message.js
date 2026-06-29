@@ -1,0 +1,246 @@
+import { api, converse, constants, _converse } from '@converse/headless';
+import './message-actions.js';
+import './message-body.js';
+import 'shared/components/dropdown.js';
+import 'shared/modals/message-versions.js';
+import 'shared/modals/user-details.js';
+import 'shared/registry.js';
+import 'plugins/muc-views/modals/occupant.js';
+import tplFileProgress from './templates/file-progress.js';
+import tplInfoMessage from './templates/info-message.js';
+import tplMepMessage from 'plugins/muc-views/templates/mep-message.js';
+import tplMessage from './templates/message.js';
+import tplMessageText from './templates/message-text.js';
+import tplRetraction from './templates/retraction.js';
+import tplSpinner from 'templates/spinner.js';
+import { ObservableElement } from 'shared/components/observable.js';
+import { __ } from 'i18n';
+
+const { Strophe } = converse.env;
+const { SUCCESS } = constants;
+
+export default class Message extends ObservableElement {
+    /**
+     * @typedef {import('shared/components/types').ObservableProperty} ObservableProperty
+     */
+
+    constructor() {
+        super();
+        this.model_with_messages = null;
+        this.model = null;
+        this.observable = /** @type {ObservableProperty} */ ('once');
+    }
+
+    static get properties() {
+        return {
+            ...super.properties,
+            model_with_messages: { type: Object },
+            model: { type: Object },
+        };
+    }
+
+    async initialize() {
+        super.initialize();
+        await this.model_with_messages.initialized;
+        await this.model_with_messages.messages.fetched;
+
+        const settings = api.settings.get();
+        this.listenTo(settings, 'change:render_media', () => {
+            // Reset individual show/hide state of media
+            this.model.save('hide_url_previews', undefined);
+            this.requestUpdate();
+        });
+
+        this.listenTo(this.model_with_messages, 'change:first_unread_id', () => this.requestUpdate());
+        this.listenTo(this.model, 'change', () => this.requestUpdate());
+        this.listenTo(this.model, 'contact:change', () => this.requestUpdate());
+        this.listenTo(this.model, 'occupant:add', () => this.requestUpdate());
+        this.listenTo(this.model, 'occupant:change', () => this.requestUpdate());
+        this.listenTo(this.model, 'vcard:add', () => this.requestUpdate());
+        this.listenTo(this.model, 'vcard:change', () => this.requestUpdate());
+        this.requestUpdate();
+    }
+
+    render() {
+        if (!this.model) {
+            return '';
+        } else if (this.show_spinner) {
+            return tplSpinner();
+        } else if (this.model.get('file') && this.model.get('upload') !== SUCCESS) {
+            return this.renderFileProgress();
+        } else if (['mep'].includes(this.model.get('type'))) {
+            return this.renderMEPMessage();
+        } else if (['error', 'info'].includes(this.model.get('type'))) {
+            return this.renderInfoMessage();
+        } else {
+            return this.renderChatMessage();
+        }
+    }
+
+    renderRetraction() {
+        return tplRetraction(this);
+    }
+
+    renderMessageText() {
+        return tplMessageText(this);
+    }
+
+    renderMEPMessage() {
+        return tplMepMessage(this);
+    }
+
+    renderInfoMessage() {
+        return tplInfoMessage(this);
+    }
+
+    renderFileProgress() {
+        if (!this.model.file) {
+            // Can happen when file upload failed and page was reloaded
+            return '';
+        }
+        return tplFileProgress(this);
+    }
+
+    renderChatMessage() {
+        return tplMessage(this);
+    }
+
+    shouldShowAvatar() {
+        return (
+            api.settings.get('show_message_avatar') &&
+            !this.model.isMeCommand() &&
+            ['chat', 'groupchat', 'normal'].includes(this.model.get('type'))
+        );
+    }
+
+    /** @param {MouseEvent} ev */
+    onImgClick(ev) {
+        ev.preventDefault();
+        const img = /** @type {HTMLImageElement} */ (ev.target);
+        api.modal.show('converse-image-modal', { src: img.src, filename: img.dataset.filename }, ev);
+    }
+
+    /**
+     * @param {import("lit").PropertyValues} changed
+     */
+    firstUpdated(changed) {
+        // Messages whose ephemeral auto-removal is deferred (e.g. an OMEMO
+        // "couldn't be decrypted" notice) should only be considered "seen" once
+        // the message is in view AND the tab is focused, so we're confident the
+        // user actually saw it before it's removed.
+        this.observableRequireFocus = !!this.model?.get('defer_ephemeral_timer');
+        super.firstUpdated(changed);
+    }
+
+    /**
+     * Called (once) when this message has been seen by the user. For ephemeral
+     * messages whose deletion was deferred until then, this is where we start
+     * the auto-destruct countdown.
+     * @param {IntersectionObserverEntry} entry
+     */
+    onVisibilityChanged(entry) {
+        super.onVisibilityChanged(entry);
+        if (this.model?.get('defer_ephemeral_timer')) {
+            this.model.startEphemeralTimer();
+        }
+    }
+
+    onUnfurlAnimationEnd() {
+        if (this.model.get('url_preview_transition') === 'fade-out') {
+            this.model.save({
+                'hide_url_previews': true,
+                'url_preview_transition': 'fade-in',
+            });
+        }
+    }
+
+    async onRetryClicked() {
+        this.show_spinner = true;
+        this.requestUpdate();
+        await api.trigger(this.model.get('retry_event_id'), { 'synchronous': true });
+        this.model.destroy();
+        this.parentElement.removeChild(this);
+    }
+
+    hasMentions() {
+        const is_groupchat = this.model.get('type') === 'groupchat';
+        return (
+            is_groupchat && this.model.get('sender') === 'them' && this.model_with_messages.isUserMentioned(this.model)
+        );
+    }
+
+    getOccupantAffiliation() {
+        return this.model.occupant?.get('affiliation');
+    }
+
+    getOccupantRole() {
+        return this.model.occupant?.get('role');
+    }
+
+    getExtraMessageClasses() {
+        const is_action = this.model.isMeCommand() || this.model.isRetracted();
+        const extra_classes = [
+            this.model.isFollowup() ? 'chat-msg--followup' : null,
+            this.model.get('is_delayed') ? 'delayed' : null,
+            is_action ? 'chat-msg--action' : null,
+            this.model.isRetracted() ? 'chat-msg--retracted' : null,
+            this.model.get('type'),
+            this.shouldShowAvatar() ? 'chat-msg--with-avatar' : null,
+        ].map((c) => c);
+
+        if (this.model.get('type') === 'groupchat') {
+            extra_classes.push(this.getOccupantRole() ?? '');
+            extra_classes.push(this.getOccupantAffiliation() ?? '');
+            if (this.model.get('sender') === 'them' && this.hasMentions()) {
+                extra_classes.push('mentioned');
+            }
+        }
+        this.model.get('correcting') && extra_classes.push('correcting');
+        return extra_classes.filter((c) => c).join(' ');
+    }
+
+    getRetractionText() {
+        if (['groupchat', 'mep'].includes(this.model.get('type')) && this.model.get('moderated_by')) {
+            const retracted_by_mod = this.model.get('moderated_by');
+            if (!this.model.mod) {
+                const { occupants } = this.model_with_messages;
+                this.model.mod =
+                    occupants.findOccupant({ 'jid': retracted_by_mod }) ||
+                    occupants.findOccupant({ 'nick': Strophe.getResourceFromJid(retracted_by_mod) });
+            }
+            const modname = this.model.mod ? this.model.mod.getDisplayName() : __('A moderator');
+            return __('%1$s has removed a message', modname);
+        } else {
+            return this.model.get('sender') === 'me'
+                ? __('You have removed a message')
+                : __('%1$s has removed a message', this.model.getDisplayName());
+        }
+    }
+
+    /** @param {MouseEvent} ev */
+    showUserModal(ev) {
+        if (this.model.get('sender') === 'me') {
+            api.modal.show('converse-profile-modal', { model: _converse.state.xmppstatus }, ev);
+        } else if (this.model.get('type') === 'groupchat') {
+            ev.preventDefault();
+            api.modal.show('converse-muc-occupant-modal', { model: this.model.getOccupant(), message: this.model }, ev);
+        } else {
+            ev.preventDefault();
+            api.modal.show('converse-user-details-modal', { model: this.model_with_messages }, ev);
+        }
+    }
+
+    /** @param {MouseEvent} ev */
+    showMessageVersionsModal(ev) {
+        ev.preventDefault();
+        api.modal.show('converse-message-versions-modal', { 'model': this.model }, ev);
+    }
+
+    /** @param {MouseEvent} [ev] */
+    toggleSpoilerMessage(ev) {
+        ev?.preventDefault();
+        this.model.save({ 'is_spoiler_visible': !this.model.get('is_spoiler_visible') });
+    }
+}
+
+api.elements.define('converse-chat-message', Message);

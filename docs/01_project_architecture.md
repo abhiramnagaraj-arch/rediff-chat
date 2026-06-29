@@ -109,23 +109,23 @@ graph TD
 The platform is designed to serve multiple corporate clients simultaneously without data leakage.
 
 ### The Problem with Virtual Hosts
-Traditionally, multi-tenant XMPP uses virtual hosts (`wipro.chat`, `tcs.chat`). This means Ejabberd must create separate Mnesia tables for every single company. At 1,000 tenants, this requires 15,000+ Mnesia tables, which crashes the server.
+Traditionally, multi-tenant XMPP uses virtual hosts. This implementation keeps the Ejabberd cluster shared and scopes persistence by vhost in PostgreSQL, while Mnesia remains the shared runtime state layer.
 
-### The Solution: Tenant-Scoped Sequential IDs
-All users connect to a single, unified domain: `chat.rediff.com`.
-The tenant isolation is enforced mathematically inside the JID (Jabber ID) itself.
+### The Solution: Vhost-Scoped JIDs
+Users connect through vhost-specific domains such as `v1.chat.rediff.com` and `v2.chat.rediff.com`.
+Tenant isolation is enforced in the JID localpart and by the shared `mod_tenant_isolate` module.
 
 ```mermaid
 classDiagram
     class XMPP_JID {
         +String Tenant_Prefix
         +String Sequence_ID
-        +String Domain
+        +String VHost
     }
     
     class Examples {
-        +w.10001@chat.rediff.com
-        +inf.24099@chat.rediff.com
+        +t1.u1@v1.chat.rediff.com
+        +t1.u1@v2.chat.rediff.com
     }
 
     XMPP_JID --> Examples : Renders As
@@ -133,6 +133,6 @@ classDiagram
 
 - **Prefix**: `w` (Wipro), `inf` (Infosys). Instantly identifies the corporate boundary.
 - **Sequence**: `10001`. A unique, incrementing integer.
-- **Domain**: `@chat.rediff.com`. The single unified platform domain.
+- **Domain**: `@v1.chat.rediff.com` or the appropriate tenant vhost. Passwords are checked by Keycloak.
 
 **The Isolation Rule**: A custom Erlang module (`mod_tenant_isolate`) intercepts every message. It splits the sender's prefix and the recipient's prefix. If `w` tries to message `inf`, the server instantly drops the message with a `<forbidden/>` XML error. No database lookups are required to enforce this security boundary.

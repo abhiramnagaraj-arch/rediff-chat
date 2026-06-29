@@ -1,0 +1,148 @@
+&[data-converse-theme='nordic'],
+&[data-bs-theme='nordic'] {
+    $theme: 'nordic' !default;
+
+    // Darker gray theme colors
+    --polar-night-1: #2e3440;
+    --polar-night-2: #3b4252;
+    --polar-night-3: #434c5e;
+    --polar-night-4: #4c566a;
+
+    --snow-storm-1: #d8dee9;
+    --snow-storm-2: #e5e9f0;
+    --snow-storm-3: #eceff4;
+
+    --green-1: #5d9795;
+    --green1-rgb: 93, 151, 149;
+    --green-2: #387c79;
+    --green2-rgb: 56, 124, 121;
+    --green-3: #8fbcba;
+    --green3-rgb: 143, 188, 186;
+    --green-4: #0b4c4a;
+
+    --blue-1: #5d9795;
+    --blue-2: #475d8b;
+    --blue2-rgb: 71, 93, 139;
+
+    --orange: #d0925f;
+    --orange-rgb: 208, 146, 95;
+    --orange-darker: #a76632;
+    --purple: #b48ead;
+    --purple-rgb: 180, 142, 173;
+    --red: #bf616a;
+    --red-rgb: 191, 97, 106;
+    --yellow: #ebcb8b;
+    --yellow-rgb: 235, 203, 139;
+
+    // Base variables
+    // --------------
+    --background-color: var(--snow-storm-2);
+    --background-color-rgb: 229, 233, 240;
+    --foreground-color: var(--polar-night-2);
+
+    --chat-rgb: var(--green1-rgb);
+    --muc-rgb: var(--orange-rgb);
+
+    // Bootstrap variables
+    --primary-color: var(--green-2) !important;
+    --primary-rgb: var(--green2-rgb);
+    --primary-color-hover: var(--green-3) !important;
+    --secondary-color: var(--blue-2) !important;
+    --secondary-rgb: var(--blue2-rgb);
+    --success-color: var(--green-3);
+    --success-color-rgb: var(--green3-rgb);
+    --danger-color: var(--red);
+    --danger-color-rgb: var(--red-rgb);
+    --warning-color: var(--orange);
+    --info-color: var(--purple);
+    --info-color-rgb: var(--purple-rgb);
+
+    --converse-info: var(--info-color);
+    --converse-info-rgb: var(--info-color-rgb);
+    --converse-link-color: var(--link-color) !important;
+    --converse-link-hover-color: var(--link-color-hover) !important;
+    --converse-success: var(--success-color);
+    --converse-success-rgb: var(--success-color-rgb);
+    --converse-danger: var(--danger-color);
+    --converse-danger-rgb: var(--danger-color-rgb);
+    --converse-body-bg: var(--background-color);
+    --converse-body-color: var(--foreground-color) !important;
+    --converse-highlight-color: var(--red);
+    --converse-border-color: lightgray;
+
+    .form-check-input:checked {
+        background-color: var(--purple);
+        border-color: var(--purple);
+    }
+    .navbar-nav {
+        --converse-nav-link-color: var(--link-color) !important;
+    }
+    .popover {
+        --converse-popover-header-color: var(--background-color) !important;
+        --converse-popover-header-bg: var(--info-color) !important;
+    }
+    .modal {
+        --converse-modal-color: var(--foreground-color) !important;
+    }
+    .toast {
+        --converse-toast-color: var(--background-color);
+        --converse-toast-bg: var(--secondary-color) !important;
+    }
+    converse-chat-heading,
+    converse-muc-heading {
+        box-shadow: var(--converse-box-shadow) !important;
+    }
+
+    // Online status indicators
+    --chat-status-away: var(--orange);
+    --chat-status-busy: var(--red);
+    --chat-status-offline: gray;
+    --chat-status-online: var(--green-4);
+
+    --controlbox-color: var(--purple);
+    --disabled-color: var(--secondary-color);
+    --error-color: var(--red);
+    --focus-color: var(--secondary-color);
+    --heading-color: var(--purple);
+    --link-color: var(--blue-2);
+    --subdued-color: gray;
+
+    // toast colors
+    --toast-color: var(--background-color);
+    --toast-bg-color: var(--secondary-color);
+
+    // The background when selecting text with your mouse
+    --selection-color: var(--green-1);
+
+    // Used to indicate selected or open items in lists.
+    --highlight-color: var(--snow-storm-3);
+    --highlight-color-hover: var(--snow-storm-1);
+
+    // 1:1 Chat-related colors
+    --chat-color: var(--green-1);
+    --chat-header-fg-color: var(--background-color);
+    --chat-header-bg-color: var(--chat-color);
+
+    // MUC-related colors
+    --muc-color: var(--orange);
+    --muc-header-fg-color: var(--background-color);
+    --muc-header-bg-color: var(--muc-color);
+
+    // Headlines-related colors
+    --headlines-color: var(--purple);
+    --headlines-header-fg-color: var(--background-color);
+    --headlines-header-bg-color: var(--headlines-color);
+
+    // Derived colors
+    // --------------
+    --brand-heading-color: var(--green-4);
+    --chat-color-hover: var(--chat-color);
+    --danger-color-hover: var(--danger-color);
+    --global-background-color: var(--background-color);
+    --link-color-hover: var(--link-color);
+    --muc-color-hover: var(--muc-color);
+    --primary-color-hover: var(--purple);
+    --secondary-color-hover: var(--snow-storm-1);
+    --success-color-hover: var(--success);
+    --warning-color-hover: var(--orange);
+}

@@ -1,0 +1,308 @@
+import { PRIVATE_CHAT_TYPE, INACTIVE } from '../../shared/constants.js';
+import _converse from '../../shared/_converse.js';
+import api from '../../shared/api/index.js';
+import converse from '../../shared/api/public.js';
+import log from '@converse/log';
+import { isUniView } from '../../utils/session.js';
+import { sendChatState, sendMarker } from '../../shared/actions.js';
+import ModelWithMessages from '../../shared/model-with-messages.js';
+import ModelWithVCard from '../../shared/model-with-vcard.js';
+import ModelWithContact from '../../shared/model-with-contact.js';
+import ColorAwareModel from '../../shared/color.js';
+import ChatBoxBase from '../../shared/chatbox.js';
+
+const { Strophe, u } = converse.env;
+
+/**
+ * Represents a one-on-one chat conversation.
+ */
+class ChatBox extends ModelWithVCard(ModelWithMessages(ModelWithContact(ColorAwareModel(ChatBoxBase)))) {
+    /**
+     * @typedef {import('./message.js').default} Message
+     * @typedef {import('../muc/muc.js').default} MUC
+     * @typedef {import('../../shared/types').MessageAttributes} MessageAttributes
+     * @typedef {import('../../shared/errors').StanzaParseError} StanzaParseError
+     */
+
+    defaults() {
+        return {
+            bookmarked: false,
+            hidden: isUniView() && !api.settings.get('singleton'),
+            message_type: 'chat',
+            num_unread: 0,
+            time_opened: this.get('time_opened') || new Date().getTime(),
+            time_sent: new Date(0).toISOString(),
+            type: PRIVATE_CHAT_TYPE,
+        };
+    }
+
+    /**
+     * @param {import('@converse/skeletor').ModelAttributes} attrs
+     * @param {import('@converse/skeletor').ModelOptions} options
+     */
+    constructor(attrs, options) {
+        super(attrs, options);
+        this.disable_mam = false;
+    }
+
+    initialize() {
+        super.initialize();
+        this.initialized = this.setup();
+    }
+
+    async setup() {
+        const jid = this.get('jid');
+        this.setPresence(jid);
+        await this.setModelContact(jid);
+
+        this.on('change:chat_state', () => sendChatState(this.get('jid'), this.get('chat_state')));
+        this.on('change:hidden', () => this.get('hidden') && this.setChatState(INACTIVE));
+
+        await this.fetchMessages();
+        /**
+         * Triggered once a {@link ChatBox} has been created and initialized.
+         * @event _converse#chatBoxInitialized
+         * @type { ChatBox}
+         * @example _converse.api.listen.on('chatBoxInitialized', model => { ... });
+         */
+        await api.trigger('chatBoxInitialized', this, { synchronous: true });
+    }
+
+    /**
+     * @param {string} jid
+     */
+    async setPresence(jid) {
+        await api.waitUntil('presencesInitialized');
+        const { presences } = _converse.state;
+        this.presence = presences.get(jid) || presences.create({ jid });
+        this.presence.on(
+            'change:show',
+            /** @param {import('../roster/presence').default} item */
+            (item) => this.onPresenceChanged(item),
+        );
+    }
+
+    /**
+     * @param {MessageAttributes|StanzaParseError} attrs_or_error
+     */
+    async onMessage(attrs_or_error) {
+        if (u.isErrorObject(attrs_or_error)) {
+            const { stanza, message } = /** @type {StanzaParseError} */ (attrs_or_error);
+            if (stanza) log.error(stanza);
+            return log.error(message);
+        }
+
+        const attrs = /** @type {MessageAttributes} */ (attrs_or_error);
+        const message = await this.getDuplicateMessage(attrs);
+        if (message) {
+            await this.updateMessage(message, attrs);
+        } else if (
+            !this.handleReceipt(attrs) &&
+            !this.handleChatMarker(attrs) &&
+            !(await this.handleRetraction(attrs))
+        ) {
+            this.setEditable(attrs, attrs.time);
+
+            if (attrs['chat_state'] && attrs.sender === 'them') {
+                this.notifications.set('chat_state', attrs.chat_state);
+            }
+            /**
+             * *Hook* which allows plugins to intercept an incoming message stanza
+             * before it is stored as a new message. Plugins can consume the stanza
+             * entirely (e.g. to store it as a specialised placeholder) by returning
+             * `{ handled: true }`, which prevents normal message creation.
+             * @event _converse#beforeMessageCreated
+             * @param {ChatBox} context - The chatbox for which the message was received.
+             * @param {MessageAttributes} attrs - Parsed message attributes.
+             * @param {{ handled: boolean }} data - Pass `{ handled: true }` to signal
+             *   that the stanza has been fully handled and should not be processed further.
+             * @example
+             *   api.listen.on('beforeMessageCreated', (chatbox, attrs, data) => {
+             *       if (attrs.my_custom_field) {
+             *           // Handle it ourselves and stop normal processing
+             *           return { ...data, handled: true };
+             *       }
+             *       return data;
+             *   });
+             */
+            const { handled } = await api.hook('beforeMessageCreated', this, attrs, { handled: false });
+            if (handled) return;
+
+            if (u.shouldCreateMessage(attrs)) {
+                const msg = (await this.handleCorrection(attrs)) || (await this.createMessage(attrs));
+                /**
+                 * *Hook* which is fired after a new message model has been created
+                 * and persisted. Plugins can use this to reconcile any state that
+                 * was stored in anticipation of this message (e.g. dangling reactions
+                 * or retractions that arrived before the original message).
+                 * @event _converse#afterMessageCreated
+                 * @param {ChatBox} context - The chatbox the message belongs to.
+                 * @param {Message} data - The newly created message model.
+                 * @example
+                 *   api.listen.on('afterMessageCreated', (chatbox, message) => {
+                 *       // e.g. apply any stored dangling reactions to this message
+                 *   });
+                 */
+                if (msg) await api.hook('afterMessageCreated', this, msg);
+                this.notifications.set({ 'chat_state': null });
+                this.handleUnreadMessage(msg);
+            }
+        }
+    }
+
+    /**
+     * @param {import('../roster/presence').default} item
+     */
+    onPresenceChanged(item) {
+        const { __ } = _converse;
+        const show = item.get('show');
+        const fullname = this.getDisplayName();
+        let message;
+        if (show === 'offline') {
+            message = __('%1$s has gone offline', fullname);
+        } else if (show === 'away') {
+            message = __('%1$s has gone away', fullname);
+        } else if (show === 'dnd') {
+            message = __('%1$s is busy', fullname);
+        } else if (show === 'online') {
+            message = __('%1$s is online', fullname);
+        }
+        if (message) this.createMessage({ message, type: 'info', is_ephemeral: true });
+    }
+
+    async close() {
+        if (api.connection.connected()) {
+            // Immediately sending the chat state, because the
+            // model is going to be destroyed afterwards.
+            this.setChatState(INACTIVE);
+            sendChatState(this.get('jid'), this.get('chat_state'));
+        }
+        await super.close();
+    }
+
+    /**
+     * @returns {string|null}
+     */
+    getDisplayName() {
+        if (this.contact) {
+            const display_name = this.contact.getDisplayName({ no_jid: true });
+            if (display_name) return display_name;
+        }
+
+        if (this.vcard) {
+            return this.vcard.getDisplayName();
+        } else {
+            return this.get('jid');
+        }
+    }
+
+    /**
+     * @param {string} jid1
+     * @param {string} jid2
+     */
+    isSameUser(jid1, jid2) {
+        return u.isSameBareJID(jid1, jid2);
+    }
+
+    /**
+     * @param {MessageAttributes} attrs
+     */
+    handleChatMarker(attrs) {
+        const to_bare_jid = Strophe.getBareJidFromJid(attrs.to);
+        if (to_bare_jid !== _converse.session.get('bare_jid')) {
+            return false;
+        }
+
+        if (attrs.is_markable) {
+            if (
+                this.contact &&
+                !['none', 'to', undefined].includes(this.contact.get('subscription')) &&
+                !attrs.is_archived &&
+                !attrs.is_carbon
+            ) {
+                sendMarker(attrs.from, attrs.msgid, 'received');
+            }
+            return false;
+        } else if (attrs.marker_id) {
+            const message = this.messages.findWhere({ 'msgid': attrs.marker_id });
+            const field_name = `marker_${attrs.marker}`;
+            if (message && !message.get(field_name)) {
+                message.save({ field_name: new Date().toISOString() });
+            }
+            return true;
+        }
+    }
+
+    /**
+     * @param {MessageAttributes} [attrs]
+     * @return {Promise<MessageAttributes>}
+     */
+    async getOutgoingMessageAttributes(attrs) {
+        const is_spoiler = !!this.get('composing_spoiler');
+        const origin_id = u.getUniqueId();
+        const text = attrs?.body;
+        const body = text ? u.emojis.shortnamesToUnicode(text) : undefined;
+
+        // Get reply attributes from chatbox model if replying to a message
+        const reply_to_id = this.get('reply_to_id');
+        const reply_to = this.get('reply_to');
+
+        attrs = Object.assign(
+            {},
+            attrs,
+            {
+                body,
+                from: _converse.session.get('jid'),
+                fullname: _converse.state.profile.get('fullname'),
+                id: origin_id,
+                is_spoiler,
+                jid: this.get('jid'),
+                message: body,
+                msgid: origin_id,
+                nick: this.get('nickname'),
+                origin_id,
+                reply_to_id,
+                reply_to,
+                sender: 'me',
+                time: new Date().toISOString(),
+                type: this.get('message_type'),
+            },
+            await u.getMediaURLsMetadata(text),
+        );
+
+        // Add the XEP-0461 reply fallback before the hook
+        attrs = this.addReplyFallback(attrs);
+
+        // Clear reply state after capturing it
+        if (reply_to_id) {
+            this.save({ reply_to_id: undefined, reply_to: undefined });
+        }
+
+        /**
+         * *Hook* which allows plugins to update the attributes of an outgoing message.
+         * These attributes get set on the {@link Message} or
+         * {@link MUCMessage} and persisted to storage.
+         * @event _converse#getOutgoingMessageAttributes
+         * @param {ChatBox|MUC} chat
+         *      The chat from which this message will be sent.
+         * @param {MessageAttributes} attrs
+         *      The message attributes, from which the stanza will be created.
+         */
+        attrs = await api.hook('getOutgoingMessageAttributes', this, attrs);
+        return attrs;
+    }
+
+    canPostMessages() {
+        return true;
+    }
+
+    /**
+     * @param {import('../../shared/message').default} message
+     */
+    isChatMessage(message) {
+        const type = message.get('type');
+        return type === this.get('message_type') || type === 'normal';
+    }
+}
+
+export default ChatBox;

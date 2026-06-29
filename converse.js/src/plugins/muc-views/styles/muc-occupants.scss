@@ -1,0 +1,164 @@
+.conversejs {
+    converse-muc-occupants {
+        width: 100%;
+
+        .occupants {
+            display: flex;
+            height: 100%;
+            width: 100%;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow-y: visible;
+            overflow-x: auto;
+
+            .occupants-header--title {
+                display: flex;
+                flex-direction: row;
+                padding: 0.5em;
+
+                .hide-occupants {
+                    align-self: flex-end;
+                    cursor: pointer;
+                    font-size: var(--font-size-small);
+                }
+            }
+
+            .suggestion-box{
+                ul {
+                    padding: 0;
+                    li {
+                        padding: 0.5em;
+                    }
+                }
+            }
+            .items-list {
+                padding: 0;
+                margin-bottom: 0.5em;
+                overflow-x: hidden;
+                overflow-y: auto;
+                list-style: none;
+
+                &.occupant-list {
+                    padding: 0.5em;
+                    overflow-y: auto;
+                    flex-basis: 0;
+                    flex-grow: 1;
+                }
+                .list-item {
+                    height: auto;
+                    cursor: default;
+                    font-size: var(--font-size-small);
+                    padding: 0.25em 0.25em 0.25em 0;
+                    text-overflow: ellipsis;
+                    .fa {
+                        margin-inline-end: 0.5em;
+                    }
+                    &.feature {
+                        font-size: var(--font-size-tiny);
+                    }
+                    &.occupant {
+                        cursor: pointer;
+                        .chat-status {
+                            margin-top: -0.1em;
+                        }
+
+                        .msgs-indicator {
+                            margin-inline-start: -3em;
+                            margin-inline-end: 0.5em;
+                            margin-top: -0.25em;
+                            position: absolute;
+                            font-size: xx-small;
+                        }
+
+                        .occupant-nick-badge {
+                            display: flex;
+                            justify-content: space-between;
+                            flex-wrap: nowrap;
+                            align-items: center;
+                            gap: 0.25rem;
+                            overflow-x: hidden;
+
+                            .occupant-nick {
+                                flex-grow: 2;
+                                overflow-x: hidden;
+                                text-overflow: ellipsis;
+                            }
+
+                            .occupant-badges {
+                                display: flex;
+                                justify-content: flex-end;
+                                flex-wrap: wrap;
+                                flex-direction: row;
+                                flex-shrink: 1;
+                                gap: 0.25rem;
+
+                                span {
+                                    height: 1.6em;
+                                }
+                            }
+
+                            .occupant-actions {
+                                // We must specify the position, else there is a bug:
+                                // clicking on an action would close the dropdown without triggering the action.
+                                position: static;
+                            }
+                        }
+
+                        div.row.g-0{
+                            flex-wrap: nowrap;
+                            min-height: 1.5em;
+                        }
+                        .badge {
+                            margin-bottom: 0.125rem;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    converse-chats{
+        &.converse-overlayed {
+            converse-muc-occupants {
+                .occupants {
+                    .occupant-list {
+                        border-bottom: none;
+                    }
+                    ul {
+                        .occupant {
+                            .occupant-nick-badge {
+                                .occupant-badges {
+                                    display: none;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        &.converse-embedded,
+        &.converse-fullscreen {
+            converse-muc-occupants {
+                .occupants {
+                    ul {
+                        &.occupant-list {
+                            li {
+                                font-size: var(--font-size-small);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        &.converse-embedded {
+            converse-muc-occupants {
+                .occupants {
+                    .occupant-list {
+                        padding-inline-start: 0.3em;
+                    }
+                }
+            }
+        }
+    }
+}

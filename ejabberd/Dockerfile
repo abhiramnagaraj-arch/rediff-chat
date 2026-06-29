@@ -24,7 +24,7 @@ COPY extauth.py /home/ejabberd/conf/extauth.py
 # Provide a self-signed TLS certificate for local development so ejabberd can
 # start with TLS enabled even when the host repo has not provisioned one.
 RUN mkdir -p /home/ejabberd/conf && \
-    printf "[req]\ndefault_bits=2048\nprompt=no\ndefault_md=sha256\ndistinguished_name=dn\nreq_extensions=req_ext\n\n[dn]\nCN=chat.rediff.com\n\n[req_ext]\nsubjectAltName=DNS:localhost,DNS:chat.rediff.com,DNS:wipro.chat,DNS:infosys.chat,DNS:tcs.chat,DNS:ibm.chat,IP:127.0.0.1,IP:10.20.10.165\n" > /tmp/openssl.cnf && \
+    printf "[req]\ndefault_bits=2048\nprompt=no\ndefault_md=sha256\ndistinguished_name=dn\nreq_extensions=req_ext\n\n[dn]\nCN=v1.chat.rediff.com\n\n[req_ext]\nsubjectAltName=DNS:localhost,DNS:chat.rediff.com,DNS:v1.chat.rediff.com,DNS:v2.chat.rediff.com,DNS:v3.chat.rediff.com,DNS:v4.chat.rediff.com,IP:127.0.0.1,IP:10.20.10.165\n" > /tmp/openssl.cnf && \
     openssl req -x509 -nodes -newkey rsa:2048 \
       -keyout /tmp/server.key \
       -out /tmp/server.crt \

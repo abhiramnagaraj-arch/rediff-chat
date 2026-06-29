@@ -1,7 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional, Any
-from uuid import UUID
-from datetime import datetime
 
 class AuthRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -31,15 +29,14 @@ class PasswordUpdate(BaseModel):
     password: str
 
 class UserResponse(BaseModel):
-    id: UUID
-    tenant_id: UUID
+    id: str
     username: str
-    email: str
-    status: str
-    created_at: datetime
-    
-    class Config:
-        from_attributes = True
+    email: Optional[EmailStr] = None
+    enabled: bool
+    tenant_slug: Optional[str] = None
+    assigned_vhost: Optional[str] = None
+    first_name: Optional[str] = None
+    attributes: dict[str, Any] = Field(default_factory=dict)
 
 
 class OIDCIdentityResponse(BaseModel):

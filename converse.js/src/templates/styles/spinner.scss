@@ -1,0 +1,14 @@
+converse-spinner {
+    &.vertically-centered {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%; /* Ensure the parent has a defined height */
+    }
+}
+
+.spinner-grow {
+    .vertically-centered > & {
+        margin-top: 30%;
+    }
+}

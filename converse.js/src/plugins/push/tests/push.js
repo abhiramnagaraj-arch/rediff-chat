@@ -1,0 +1,248 @@
+import mock from '../../../shared/tests/mock.js';
+import converse from '../../../../dist/converse.js';
+
+const { stx, sizzle, u, Strophe } = converse.env;
+const original_timeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
+
+describe('XEP-0357 Push Notifications', function () {
+    beforeEach(() => (jasmine.DEFAULT_TIMEOUT_INTERVAL = 7000));
+    afterEach(() => (jasmine.DEFAULT_TIMEOUT_INTERVAL = original_timeout));
+
+    it(
+        'can be enabled',
+        mock.initConverse(converse, 
+            [],
+            {
+                'push_app_servers': [
+                    {
+                        'jid': 'push-5@client.example',
+                        'node': 'yxs32uqsflafdk3iuqo',
+                    },
+                ],
+            },
+            async function (_converse) {
+                const { api } = _converse;
+                const IQ_stanzas = _converse.api.connection.get().IQ_stanzas;
+                expect(_converse.session.get('push_enabled')).toBeFalsy();
+
+                await mock.waitUntilDiscoConfirmed(
+                    _converse,
+                    api.settings.get('push_app_servers')[0].jid,
+                    [{ 'category': 'pubsub', 'type': 'push' }],
+                    ['urn:xmpp:push:0'],
+                    [],
+                    'info',
+                );
+                await mock.waitUntilDiscoConfirmed(
+                    _converse,
+                    _converse.bare_jid,
+                    [{ 'category': 'account', 'type': 'registered' }],
+                    ['urn:xmpp:push:0'],
+                    [],
+                    'info',
+                );
+                const stanza = await u.waitUntil(() =>
+                    IQ_stanzas.filter(
+                        (iq) => sizzle('iq[type="set"] enable[xmlns="urn:xmpp:push:0"]', iq).length,
+                    ).pop(),
+                );
+                expect(stanza).toEqualStanza(stx`<iq id="${stanza.getAttribute('id')}" type="set" xmlns="jabber:client">
+                    <enable jid="push-5@client.example" node="yxs32uqsflafdk3iuqo" xmlns="urn:xmpp:push:0"/>
+                </iq>`);
+                _converse.api.connection.get()._dataRecv(
+                    mock.createRequest(_converse, 
+                        stx`<iq to="${_converse.api.connection.get().jid}"
+                                type="result"
+                                id="${stanza.getAttribute('id')}"
+                                xmlns="jabber:client"/>`,
+                    ),
+                );
+                await u.waitUntil(() => _converse.session.get('push_enabled'));
+            },
+        ),
+    );
+
+    it(
+        'can be enabled for a MUC domain',
+        mock.initConverse(converse, 
+            [],
+            {
+                'enable_muc_push': true,
+                'push_app_servers': [
+                    {
+                        'jid': 'push-5@client.example',
+                        'node': 'yxs32uqsflafdk3iuqo',
+                    },
+                ],
+            },
+            async function (_converse) {
+                const { api } = _converse;
+                const IQ_stanzas = _converse.api.connection.get().IQ_stanzas;
+                await mock.waitUntilDiscoConfirmed(
+                    _converse,
+                    api.settings.get('push_app_servers')[0].jid,
+                    [{ 'category': 'pubsub', 'type': 'push' }],
+                    ['urn:xmpp:push:0'],
+                    [],
+                    'info',
+                );
+                await mock.waitUntilDiscoConfirmed(_converse, _converse.bare_jid, [], ['urn:xmpp:push:0']);
+
+                let iq = await u.waitUntil(() =>
+                    IQ_stanzas.filter(
+                        (iq) => sizzle(`iq[type="set"] enable[xmlns="${Strophe.NS.PUSH}"]`, iq).length,
+                    ).pop(),
+                );
+
+                expect(iq).toEqualStanza(stx`<iq id="${iq.getAttribute('id')}" type="set" xmlns="jabber:client">
+                    <enable jid="push-5@client.example" node="yxs32uqsflafdk3iuqo" xmlns="urn:xmpp:push:0"/>
+                </iq>`);
+                const result = u.toStanza(`<iq type="result" id="${iq.getAttribute('id')}" to="romeo@montague.lit" />`);
+                _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, result));
+
+                await u.waitUntil(() => _converse.session.get('push_enabled'));
+                expect(_converse.session.get('push_enabled').length).toBe(1);
+                expect(_converse.session.get('push_enabled').includes('romeo@montague.lit')).toBe(true);
+
+                mock.openAndEnterMUC(_converse, 'coven@chat.shakespeare.lit', 'oldhag');
+                await mock.waitUntilDiscoConfirmed(
+                    _converse,
+                    'chat.shakespeare.lit',
+                    [{ 'category': 'account', 'type': 'registered' }],
+                    ['urn:xmpp:push:0'],
+                    [],
+                    'info',
+                );
+
+                iq = await u.waitUntil(() =>
+                    IQ_stanzas.filter(
+                        (iq) =>
+                            sizzle(`iq[type="set"][to="chat.shakespeare.lit"] enable[xmlns="${Strophe.NS.PUSH}"]`, iq)
+                                .length,
+                    ).pop(),
+                );
+
+                expect(iq).toEqualStanza(stx`
+                    <iq id="${iq.getAttribute('id')}" to="chat.shakespeare.lit" type="set" xmlns="jabber:client">
+                        <enable jid="push-5@client.example" node="yxs32uqsflafdk3iuqo" xmlns="urn:xmpp:push:0"/>
+                    </iq>`);
+                _converse.api.connection.get()._dataRecv(
+                    mock.createRequest(_converse, 
+                        stx`<iq to="${_converse.api.connection.get().jid}"
+                                type="result"
+                                id="${iq.getAttribute('id')}"
+                                xmlns="jabber:client"/>`,
+                    ),
+                );
+                await u.waitUntil(() => _converse.session.get('push_enabled').includes('chat.shakespeare.lit'));
+            },
+        ),
+    );
+
+    it(
+        'can be disabled',
+        mock.initConverse(converse, 
+            ['chatBoxesFetched'],
+            {
+                'push_app_servers': [
+                    {
+                        'jid': 'push-5@client.example',
+                        'node': 'yxs32uqsflafdk3iuqo',
+                        'disable': true,
+                    },
+                ],
+            },
+            async function (_converse) {
+                const IQ_stanzas = _converse.api.connection.get().IQ_stanzas;
+                expect(_converse.session.get('push_enabled')).toBeFalsy();
+
+                await mock.waitUntilDiscoConfirmed(
+                    _converse,
+                    _converse.bare_jid,
+                    [{ 'category': 'account', 'type': 'registered' }],
+                    ['urn:xmpp:push:0'],
+                    [],
+                    'info',
+                );
+                const stanza = await u.waitUntil(() =>
+                    IQ_stanzas.filter(
+                        (iq) => sizzle('iq[type="set"] disable[xmlns="urn:xmpp:push:0"]', iq).length,
+                    ).pop(),
+                );
+                expect(stanza).toEqualStanza(stx`<iq id="${stanza.getAttribute('id')}" type="set" xmlns="jabber:client">
+                    <disable jid="push-5@client.example" node="yxs32uqsflafdk3iuqo" xmlns="urn:xmpp:push:0"/>
+                </iq>`);
+                _converse.api.connection.get()._dataRecv(
+                    mock.createRequest(_converse, 
+                        stx`<iq to="${_converse.api.connection.get().jid}"
+                                type="result"
+                                id="${stanza.getAttribute('id')}"
+                                xmlns="jabber:client"/>`,
+                    ),
+                );
+                await u.waitUntil(() => _converse.session.get('push_enabled'));
+            },
+        ),
+    );
+
+    it(
+        'can require a secret token to be included',
+        mock.initConverse(converse, 
+            [],
+            {
+                'push_app_servers': [
+                    {
+                        'jid': 'push-5@client.example',
+                        'node': 'yxs32uqsflafdk3iuqo',
+                        'secret': 'eruio234vzxc2kla-91',
+                    },
+                ],
+            },
+            async function (_converse) {
+                const { api } = _converse;
+                const IQ_stanzas = _converse.api.connection.get().IQ_stanzas;
+                expect(_converse.session.get('push_enabled')).toBeFalsy();
+
+                await mock.waitUntilDiscoConfirmed(
+                    _converse,
+                    api.settings.get('push_app_servers')[0].jid,
+                    [{ 'category': 'pubsub', 'type': 'push' }],
+                    ['urn:xmpp:push:0'],
+                    [],
+                    'info',
+                );
+                await mock.waitUntilDiscoConfirmed(
+                    _converse,
+                    _converse.bare_jid,
+                    [{ 'category': 'account', 'type': 'registered' }],
+                    ['urn:xmpp:push:0'],
+                    [],
+                    'info',
+                );
+
+                const stanza = await u.waitUntil(() =>
+                    IQ_stanzas.filter(
+                        (iq) => sizzle('iq[type="set"] enable[xmlns="urn:xmpp:push:0"]', iq).length,
+                    ).pop(),
+                );
+                expect(stanza).toEqualStanza(stx`<iq id="${stanza.getAttribute('id')}" type="set" xmlns="jabber:client">
+                    <enable jid="push-5@client.example" node="yxs32uqsflafdk3iuqo" xmlns="urn:xmpp:push:0">
+                        <x type="submit" xmlns="jabber:x:data">
+                            <field var="FORM_TYPE"><value>http://jabber.org/protocol/pubsub#publish-options</value></field>
+                            <field var="secret"><value>eruio234vzxc2kla-91</value></field>
+                        </x>
+                    </enable>
+                </iq>`);
+                _converse.api.connection.get()._dataRecv(
+                    mock.createRequest(_converse, 
+                        stx`<iq to="${_converse.api.connection.get().jid}"
+                                type="result"
+                                id="${stanza.getAttribute('id')}"
+                                xmlns="jabber:client"/>`,
+                    ),
+                );
+                await u.waitUntil(() => _converse.session.get('push_enabled'));
+            },
+        ),
+    );
+});

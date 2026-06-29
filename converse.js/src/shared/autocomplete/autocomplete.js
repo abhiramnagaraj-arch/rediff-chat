@@ -1,0 +1,374 @@
+/**
+ * @copyright Lea Verou and the Converse.js contributors
+ * @description Started as a fork of Lea Verou's "Awesomplete"
+ * @license Mozilla Public License (MPLv2)
+ */
+
+import { render, html } from 'lit';
+import { converse, u, EventEmitter } from '@converse/headless';
+import Suggestion from './suggestion.js';
+import { helpers, getAutoCompleteItem, FILTER_CONTAINS, SORT_BY_QUERY_POSITION } from './utils.js';
+
+const { siblingIndex } = u;
+
+export class AutoComplete extends EventEmitter(Object) {
+    /**
+     * @param {HTMLElement} el
+     * @param {import('./types').AutoCompleteConfig} config
+     */
+    constructor(el, config = {}) {
+        super();
+
+        this.suggestions = [];
+        this.is_opened = false;
+        this.match_current_word = false; // Match only the current word, otherwise all input is matched
+        this.suffix = ' '; // String to append after the autocompleted value
+        this.sort = typeof config.sort === 'boolean' && config.sort === false ? null : SORT_BY_QUERY_POSITION;
+        this.filter = FILTER_CONTAINS;
+        /** @type {string[]} */ this.ac_triggers = []; // Array of keys (`ev.key`) values that will trigger auto-complete
+        /** @type {string[]} */ this.include_triggers = []; // Array of trigger keys which should be included in the returned value
+        this.min_chars = 2;
+        this.max_items = 10;
+        this.auto_first = false; // Should the first element be automatically selected?
+        this.data = (a, _v) => a;
+        this.item = getAutoCompleteItem;
+
+        if (u.hasClass('suggestion-box', el)) {
+            this.container = el;
+        } else {
+            this.container = el.querySelector('.suggestion-box');
+        }
+        this.input = /** @type {HTMLInputElement} */ (this.container.querySelector('.suggestion-box__input'));
+        this.input.setAttribute('aria-autocomplete', 'list');
+
+        this.ul = /** @type {HTMLElement} */ (this.container.querySelector('.suggestion-box__results'));
+        this.status = this.container.querySelector('.suggestion-box__additions');
+
+        Object.assign(this, config);
+
+        this.index = -1;
+
+        this.bindEvents();
+
+        if (this.input.hasAttribute('list')) {
+            this.list = '#' + this.input.getAttribute('list');
+            this.input.removeAttribute('list');
+        } else {
+            this.list = this.input.getAttribute('data-list') || config.list || [];
+        }
+    }
+
+    bindEvents() {
+        /** @type {Record<string, Array<{callback: Function, context?: any, ctx?: any}>>} */ this._events = {
+            input: [
+                {
+                    callback: () => this.close({ reason: 'blur' }),
+                    context: undefined,
+                    ctx: undefined,
+                },
+            ],
+            form: [
+                {
+                    callback: () => this.close({ reason: 'submit' }),
+                    context: undefined,
+                    ctx: undefined,
+                },
+            ],
+            ul: [
+                {
+                    callback: (ev) => this.onMouseDown(ev),
+                    context: undefined,
+                    ctx: undefined,
+                },
+                {
+                    callback: (ev) => this.onMouseOver(ev),
+                    context: undefined,
+                    ctx: undefined,
+                },
+            ],
+        };
+        // The helpers.bind function expects event names to be passed differently
+        // We need to manually bind each event
+        this.input.addEventListener('blur', this._events.input[0].callback);
+        if (this.input.form) {
+            this.input.form.addEventListener('submit', this._events.form[0].callback);
+        }
+        this.ul.addEventListener('mousedown', this._events.ul[0].callback);
+        this.ul.addEventListener('mouseover', this._events.ul[1].callback);
+    }
+
+    set list(list) {
+        if (Array.isArray(list) || typeof list === 'function') {
+            this._list = list;
+        } else if (typeof list === 'string' && list.includes(',')) {
+            this._list = list.split(/\s*,\s*/);
+        } else {
+            // Element or CSS selector
+            const el = helpers.getElement(list);
+            const children = el?.children;
+            this._list = Array.from(children || [])
+                .filter(/** @param {HTMLOptionElement} el */ (el) => !el.disabled)
+                .map(
+                    /** @param {HTMLOptionElement} el */ (el) => {
+                        const text = el.textContent.trim();
+                        const value = el.value || text;
+                        const label = el.label || text;
+                        return value !== '' ? { label, value } : null;
+                    },
+                )
+                .filter((i) => i);
+        }
+
+        if (document.activeElement === this.input) {
+            this.evaluate();
+        }
+    }
+
+    get list() {
+        return this._list;
+    }
+
+    get selected() {
+        return this.index > -1;
+    }
+
+    get opened() {
+        return this.is_opened;
+    }
+
+    /**
+     * @param {import('./types').closeParam} o
+     */
+    close(o) {
+        if (!this.opened) {
+            return;
+        }
+        this.ul.setAttribute('hidden', '');
+        this.is_opened = false;
+        this.index = -1;
+        this.trigger('suggestion-box-close', o || {});
+    }
+
+    /**
+     * @param {Suggestion} suggestion
+     */
+    insertValue(suggestion) {
+        if (this.match_current_word) {
+            u.replaceCurrentWord(this.input, suggestion.value, this.suffix);
+        } else {
+            this.input.value = suggestion.value;
+        }
+    }
+
+    open() {
+        this.ul.removeAttribute('hidden');
+        this.is_opened = true;
+
+        if (this.auto_first && this.index === -1) {
+            this.goto(0);
+        }
+        this.trigger('suggestion-box-open');
+    }
+
+    destroy() {
+        // Remove events from the input and its form
+        this.input.removeEventListener('blur', this._events.input[0].callback);
+        if (this.input.form) {
+            this.input.form.removeEventListener('submit', this._events.form[0].callback);
+        }
+        this.ul.removeEventListener('mousedown', this._events.ul[0].callback);
+        this.ul.removeEventListener('mouseover', this._events.ul[1].callback);
+        this.input.removeAttribute('aria-autocomplete');
+    }
+
+    next() {
+        const count = this.ul.children.length;
+        this.goto(this.index < count - 1 ? this.index + 1 : count ? 0 : -1);
+    }
+
+    previous() {
+        const count = this.ul.children.length,
+            pos = this.index - 1;
+        this.goto(this.selected && pos !== -1 ? pos : count - 1);
+    }
+
+    /**
+     * @param {number} i
+     * @param {boolean} scroll=true
+     */
+    goto(i, scroll = true) {
+        // Should not be used directly, highlights specific item without any checks!
+        const list = /** @type HTMLElement[] */ (
+            Array.from(this.ul.children).filter((el) => el instanceof HTMLElement)
+        );
+        if (this.selected) {
+            list[this.index].setAttribute('aria-selected', 'false');
+        }
+        this.index = i;
+
+        if (i > -1 && list.length > 0) {
+            list[i].setAttribute('aria-selected', 'true');
+            list[i].focus();
+            this.status.textContent = list[i].textContent;
+
+            if (scroll) {
+                // scroll to highlighted element in case parent's height is fixed
+                this.ul.scrollTop = list[i].offsetTop - this.ul.clientHeight + list[i].clientHeight;
+            }
+            this.trigger('suggestion-box-highlight', { text: this.suggestions[this.index] });
+        }
+    }
+
+    /**
+     * @param {Element} [selected]
+     */
+    select(selected) {
+        if (selected) {
+            this.index = siblingIndex(selected);
+        } else {
+            selected = this.ul.children[this.index];
+        }
+        if (selected) {
+            const suggestion = this.suggestions[this.index];
+            this.insertValue(suggestion);
+            this.close({ reason: 'select' });
+            this.auto_completing = false;
+            this.trigger('suggestion-box-selectcomplete', {
+                text: suggestion, // DEPRECATED
+                suggestion,
+            });
+        }
+    }
+
+    /**
+     * @param {Event} ev
+     */
+    onMouseOver(ev) {
+        const li = u.ancestor(ev.target, 'li');
+        if (li) {
+            const index = Array.prototype.slice.call(this.ul.children).indexOf(li);
+            this.goto(index, false);
+        }
+    }
+
+    /**
+     * @param {MouseEvent} ev
+     */
+    onMouseDown(ev) {
+        if (ev.button !== 0) {
+            return; // Only select on left click
+        }
+        const li = u.ancestor(ev.target, 'li');
+        if (li) {
+            ev.preventDefault();
+            this.select(li);
+        }
+    }
+
+    /**
+     * @param {KeyboardEvent} [ev]
+     */
+    onKeyDown(ev) {
+        if (this.opened) {
+            if ([converse.keycodes.ENTER, converse.keycodes.TAB].includes(ev.key) && this.selected) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                this.select();
+                return true;
+            } else if (ev.key === converse.keycodes.ESCAPE) {
+                this.close({ reason: 'esc' });
+                return true;
+            } else if ([converse.keycodes.UP_ARROW, converse.keycodes.DOWN_ARROW].includes(ev.key)) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                this[ev.key === converse.keycodes.UP_ARROW ? 'previous' : 'next']();
+                return true;
+            }
+        }
+
+        if (
+            [converse.keycodes.SHIFT, converse.keycodes.META, converse.keycodes.ESCAPE, converse.keycodes.ALT].includes(
+                ev.key,
+            )
+        ) {
+            return;
+        }
+
+        if (this.ac_triggers.includes(ev.key)) {
+            if (ev.key === 'Tab') {
+                if (ev.shiftKey) {
+                    // TAB + shift should give the focus to previous focusable element.
+                    return;
+                }
+                // If the input is empty (and min_chars > 0), TAB should give focus to next focusable element.
+                if (this.min_chars > 0 && this.input.value === '') {
+                    return;
+                }
+                ev.preventDefault();
+            }
+            this.auto_completing = true;
+        } else if (ev.key === 'Backspace') {
+            const target = /** @type {HTMLInputElement} */ (ev.target);
+            const word = u.getCurrentWord(target, target.selectionEnd - 1);
+            if (helpers.isMention(word, this.ac_triggers)) {
+                this.auto_completing = true;
+            }
+        }
+    }
+
+    /**
+     * @param {KeyboardEvent} [ev]
+     */
+    async evaluate(ev) {
+        const selecting =
+            this.selected && ev && (ev.key === converse.keycodes.UP_ARROW || ev.key === converse.keycodes.DOWN_ARROW);
+        if (selecting) return;
+
+        let value = this.match_current_word ? u.getCurrentWord(this.input) : this.input.value;
+
+        const contains_trigger = helpers.isMention(value, this.ac_triggers);
+        if (contains_trigger && !this.include_triggers.includes(ev.key)) {
+            value = u.isMentionBoundary(value[0]) ? value.slice(2) : value.slice(1);
+        }
+
+        const is_long_enough = value.length && value.length >= this.min_chars;
+
+        if (contains_trigger || is_long_enough) {
+            this.auto_completing = true;
+
+            const list = typeof this._list === 'function' ? await this._list(value) : this._list;
+            if (list.length === 0 || !this.auto_completing) {
+                this.close({ reason: 'nomatches' });
+                return;
+            }
+
+            this.index = -1;
+            this.suggestions = list
+                .map(
+                    /** @param {import('./types').AutoCompleteData} item */ (item) =>
+                        new Suggestion(this.data(item, value), value),
+                )
+                .filter(/** @param {Suggestion} item */ ({ value: text }) => this.filter(text, value));
+
+            if (this.sort) {
+                this.suggestions = this.suggestions.sort(this.sort);
+            }
+            this.suggestions = this.suggestions.slice(0, this.max_items);
+
+            render(html`${this.suggestions.map((text) => this.item(text, value))}`, this.ul);
+
+            if (this.suggestions.length === 0) {
+                this.close({ reason: 'nomatches' });
+            } else {
+                this.open();
+            }
+        } else {
+            this.close({ reason: 'nomatches' });
+            if (!contains_trigger) {
+                this.auto_completing = false;
+            }
+        }
+    }
+}
+
+export default AutoComplete;

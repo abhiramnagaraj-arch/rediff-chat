@@ -37,6 +37,10 @@ host_config:
 auth_method: [external]
 extauth_program: "python3 /home/ejabberd/conf/extauth.py"
 auth_use_cache: false
+cluster_nodes:
+  - "ejabberd@rediff_ejabberd_a"
+  - "ejabberd@rediff_ejabberd_b"
+  - "ejabberd@rediff_ejabberd_c"
 fqdn: "v1.chat.rediff.com"
 
 loglevel: 4

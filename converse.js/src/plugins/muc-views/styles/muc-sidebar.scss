@@ -1,0 +1,41 @@
+.conversejs {
+    converse-muc-sidebar {
+        display: flex;
+        height: 100%;
+        flex-direction: row;
+        overflow: visible;
+        background-color: var(--background-color);
+
+        .sidebar-heading {
+            width: 100%;
+            font-family: var(--heading-font);
+            color: var(--muc-color);
+            padding-inline-start: 0;
+            margin-inline-end: 0.5em;
+        }
+    }
+
+    converse-chats {
+        &.converse-overlayed {
+            converse-muc-sidebar {
+                .sidebar-heading {
+                    padding: 0;
+                }
+            }
+        }
+        &.converse-fullscreen {
+            converse-muc-sidebar {
+                .sidebar-heading {
+                    font-size: var(--font-size-large);
+                }
+            }
+        }
+        &.converse-embedded {
+            converse-muc-sidebar {
+                .sidebar-heading {
+                    font-size: 120%;
+                }
+            }
+        }
+    }
+}

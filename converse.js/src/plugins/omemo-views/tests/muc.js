@@ -1,0 +1,699 @@
+import mock from '../../../shared/tests/mock.js';
+import converse from '../../../../dist/converse.js';
+
+const { Strophe, sizzle, stx } = converse.env;
+const u = converse.env.utils;
+
+describe('The OMEMO module', function () {
+    it(
+        'enables encrypted groupchat messages to be sent and received',
+        mock.initConverse(converse, ['chatBoxesFetched'], {}, async function (_converse) {
+            // MEMO encryption works only in members only conferences
+            // that are non-anonymous.
+            const features = [
+                'http://jabber.org/protocol/muc',
+                'jabber:iq:register',
+                'muc_passwordprotected',
+                'muc_hidden',
+                'muc_temporary',
+                'muc_membersonly',
+                'muc_unmoderated',
+                'muc_nonanonymous',
+            ];
+            const { api } = _converse;
+            const { jid: own_jid } = api.connection.get();
+            const nick = 'romeo';
+            const muc_jid = 'lounge@montague.lit';
+            await mock.openAndEnterMUC(_converse, muc_jid, nick, features);
+            const view = _converse.chatboxviews.get('lounge@montague.lit');
+            await u.waitUntil(() => mock.initializedOMEMO(_converse));
+
+            const toolbar = await u.waitUntil(() => view.querySelector('.chat-toolbar'));
+            const el = await u.waitUntil(() => toolbar.querySelector('.toggle-omemo'));
+            el.click();
+            expect(view.model.get('omemo_active')).toBe(true);
+
+            // newguy enters the room
+            const contact_jid = 'newguy@montague.lit';
+            let stanza = stx`
+            <presence to='romeo@montague.lit/orchard' from='lounge@montague.lit/newguy' xmlns="jabber:client">
+                <x xmlns='${Strophe.NS.MUC_USER}'>
+                    <item affiliation='member' jid='newguy@montague.lit/_converse.js-290929789' role='participant'/>
+                </x>
+            </presence>`;
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+
+            // Wait for Converse to fetch newguy's device list
+            let iq_stanza = await u.waitUntil(() => mock.deviceListFetched(_converse, contact_jid));
+            expect(iq_stanza).toEqualStanza(stx`
+            <iq from="romeo@montague.lit" id="${iq_stanza.getAttribute('id')}" to="${contact_jid}" type="get" xmlns="jabber:client">
+                <pubsub xmlns="http://jabber.org/protocol/pubsub">
+                    <items node="eu.siacs.conversations.axolotl.devicelist"/>
+                </pubsub>
+            </iq>`);
+
+            // The server returns his device list
+            stanza = stx`
+            <iq from="${contact_jid}" id="${iq_stanza.getAttribute('id')}" to="${_converse.bare_jid}" type="result" xmlns="jabber:client">
+                <pubsub xmlns="http://jabber.org/protocol/pubsub">
+                    <items node="eu.siacs.conversations.axolotl.devicelist">
+                        <item xmlns="http://jabber.org/protocol/pubsub"> <!-- TODO: must have an id attribute -->
+                            <list xmlns="eu.siacs.conversations.axolotl">
+                                <device id="4e30f35051b7b8b42abe083742187228"/>
+                            </list>
+                        </item>
+                    </items>
+                </pubsub>
+            </iq>`;
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+            await u.waitUntil(() => _converse.state.omemo_store);
+            expect(_converse.state.devicelists.length).toBe(2);
+
+            await u.waitUntil(() => mock.deviceListFetched(_converse, contact_jid));
+            const devicelist = _converse.state.devicelists.get(contact_jid);
+            expect(devicelist.devices.length).toBe(1);
+            expect(devicelist.devices.at(0).get('id')).toBe('4e30f35051b7b8b42abe083742187228');
+            expect(view.model.get('omemo_active')).toBe(true);
+
+            const icon = toolbar.querySelector('.toggle-omemo converse-icon');
+            expect(u.hasClass('fa-unlock', icon)).toBe(false);
+            expect(u.hasClass('fa-lock', icon)).toBe(true);
+
+            const textarea = view.querySelector('.chat-textarea');
+            textarea.value = 'This message will be encrypted';
+            const message_form = view.querySelector('converse-muc-message-form');
+            message_form.onKeyDown({
+                target: textarea,
+                preventDefault: function preventDefault() {},
+                key: 'Enter',
+            });
+            await u.waitUntil(() =>
+                mock.bundleFetched(_converse, {
+                    jid: contact_jid,
+                    device_id: '4e30f35051b7b8b42abe083742187228',
+                    identity_key: '3333',
+                    signed_prekey_id: '4223',
+                    signed_prekey_public: '1111',
+                    signed_prekey_sig: '2222',
+                    prekeys: ['1001', '1002', '1003'],
+                }),
+            );
+            await u.waitUntil(() =>
+                mock.bundleFetched(_converse, {
+                    jid: _converse.bare_jid,
+                    device_id: '482886413b977930064a5888b92134fe',
+                    identity_key: '300000',
+                    signed_prekey_id: '4224',
+                    signed_prekey_public: '100000',
+                    signed_prekey_sig: '200000',
+                    prekeys: ['1991', '1992', '1993'],
+                }),
+            );
+
+            const sent_stanzas = _converse.api.connection.get().sent_stanzas;
+            let sent_stanza = await u.waitUntil(() => sent_stanzas.filter((s) => sizzle('body', s).length).pop(), 1000);
+
+            expect(sent_stanza).toEqualStanza(stx`
+            <message from="${own_jid}"
+                     id="${sent_stanza.getAttribute('id')}"
+                     to="lounge@montague.lit"
+                     type="groupchat"
+                     xmlns="jabber:client">
+                <body>This is an OMEMO encrypted message which your client doesn’t seem to support. Find more information on https://conversations.im/omemo</body>
+                <origin-id id="${sent_stanza.getAttribute('id')}" xmlns="urn:xmpp:sid:0"/>
+                <encrypted xmlns="eu.siacs.conversations.axolotl">
+                    <header sid="123456789">
+                        <key rid="482886413b977930064a5888b92134fe">YzFwaDNSNzNYNw==</key>
+                        <key rid="4e30f35051b7b8b42abe083742187228">YzFwaDNSNzNYNw==</key>
+                        <iv>${sent_stanza.querySelector('iv').textContent}</iv>
+                    </header>
+                    <payload>${sent_stanza.querySelector('payload').textContent}</payload>
+                </encrypted>
+                <store xmlns="urn:xmpp:hints"/>
+                <encryption namespace="eu.siacs.conversations.axolotl" xmlns="urn:xmpp:eme:0"/>
+            </message>`);
+
+            // Test reception of an encrypted message
+            const obj = await u.omemo.encryptMessage('This is an encrypted message from the contact');
+            // XXX: Normally the key will be encrypted via libsignal.
+            // However, we're mocking libsignal in the tests, so we include it as plaintext in the message.
+            stanza = stx`
+            <message from="${muc_jid}/newguy"
+                     to="${_converse.api.connection.get().jid}"
+                     type="groupchat"
+                     id="${_converse.api.connection.get().getUniqueId()}"
+                     xmlns="jabber:client">
+                <body>This is a fallback message</body>
+                <encrypted xmlns="${Strophe.NS.OMEMO}">
+                    <header sid="555">
+                        <key rid="${_converse.state.omemo_store.get('device_id')}">${u.arrayBufferToBase64(obj.key_and_tag)}</key>
+                        <iv>${obj.iv}</iv>
+                    </header>
+                    <payload>${obj.payload}</payload>
+                </encrypted>
+            </message>`;
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+            await new Promise((resolve) => view.model.messages.once('rendered', resolve));
+            expect(view.model.messages.length).toBe(2);
+            expect(view.querySelectorAll('.chat-msg__body')[1].textContent.trim()).toBe(
+                'This is an encrypted message from the contact',
+            );
+
+            expect(_converse.state.devicelists.length).toBe(2);
+            expect(_converse.state.devicelists.at(0).get('jid')).toBe(_converse.bare_jid);
+            expect(_converse.state.devicelists.at(1).get('jid')).toBe(contact_jid);
+        }),
+    );
+
+    it(
+        'does not send encrypted messages to banned (outcast) occupants',
+        mock.initConverse(converse, ['chatBoxesFetched'], {}, async function (_converse) {
+            // Regression test for https://github.com/conversejs/converse.js/issues/4076
+            // Recipients must be restricted to the member/admin/owner affiliation
+            // lists; a banned (outcast) occupant must never receive key material.
+            const features = [
+                'http://jabber.org/protocol/muc',
+                'jabber:iq:register',
+                'muc_passwordprotected',
+                'muc_hidden',
+                'muc_temporary',
+                'muc_membersonly',
+                'muc_unmoderated',
+                'muc_nonanonymous',
+            ];
+            const { api } = _converse;
+            const { jid: own_jid } = api.connection.get();
+            const muc_jid = 'lounge@montague.lit';
+            await mock.openAndEnterMUC(_converse, muc_jid, 'romeo', features);
+            const view = _converse.chatboxviews.get(muc_jid);
+            await u.waitUntil(() => mock.initializedOMEMO(_converse));
+
+            const toolbar = await u.waitUntil(() => view.querySelector('.chat-toolbar'));
+            const el = await u.waitUntil(() => toolbar.querySelector('.toggle-omemo'));
+            el.click();
+            expect(view.model.get('omemo_active')).toBe(true);
+
+            // A regular member (goodguy) and another member who will be banned (baddy) enter.
+            const goodguy_jid = 'goodguy@montague.lit';
+            const baddy_jid = 'baddy@montague.lit';
+            const goodguy_device = 'a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1';
+            const baddy_device = 'b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2';
+
+            for (const [nick, jid] of [
+                ['goodguy', goodguy_jid],
+                ['baddy', baddy_jid],
+            ]) {
+                _converse.api.connection.get()._dataRecv(
+                    mock.createRequest(
+                        _converse,
+                        stx`<presence to='romeo@montague.lit/orchard' from='${muc_jid}/${nick}' xmlns="jabber:client">
+                            <x xmlns='${Strophe.NS.MUC_USER}'>
+                                <item affiliation='member' jid='${jid}/resource' role='participant'/>
+                            </x>
+                        </presence>`,
+                    ),
+                );
+            }
+
+            // Converse fetches both occupants' device lists.
+            await u.waitUntil(() => mock.deviceListFetched(_converse, goodguy_jid, [goodguy_device]));
+            await u.waitUntil(() => mock.deviceListFetched(_converse, baddy_jid, [baddy_device]));
+            await u.waitUntil(() => _converse.state.devicelists.get(goodguy_jid));
+            await u.waitUntil(() => _converse.state.devicelists.get(baddy_jid));
+
+            // baddy is banned: their affiliation flips to 'outcast' while still in
+            // the occupants collection (as verified against a live server).
+            const baddy_occ = view.model.occupants.findOccupant({ jid: baddy_jid });
+            baddy_occ.save({ affiliation: 'outcast' });
+
+            const textarea = view.querySelector('.chat-textarea');
+            textarea.value = 'This message must not reach baddy';
+            view.querySelector('converse-muc-message-form').onKeyDown({
+                target: textarea,
+                preventDefault: function preventDefault() {},
+                key: 'Enter',
+            });
+
+            // Only goodguy's and our own bundle should be fetched, never baddy's.
+            await u.waitUntil(() =>
+                mock.bundleFetched(_converse, {
+                    jid: goodguy_jid,
+                    device_id: goodguy_device,
+                    identity_key: '3333',
+                    signed_prekey_id: '4223',
+                    signed_prekey_public: '1111',
+                    signed_prekey_sig: '2222',
+                    prekeys: ['1001', '1002', '1003'],
+                }),
+            );
+            await u.waitUntil(() =>
+                mock.bundleFetched(_converse, {
+                    jid: _converse.bare_jid,
+                    device_id: '482886413b977930064a5888b92134fe',
+                    identity_key: '300000',
+                    signed_prekey_id: '4224',
+                    signed_prekey_public: '100000',
+                    signed_prekey_sig: '200000',
+                    prekeys: ['1991', '1992', '1993'],
+                }),
+            );
+
+            const sent_stanzas = _converse.api.connection.get().sent_stanzas;
+            const sent_stanza = await u.waitUntil(
+                () => sent_stanzas.filter((s) => sizzle('body', s).length).pop(),
+                1000,
+            );
+
+            const rids = sizzle('encrypted header key', sent_stanza).map((k) => k.getAttribute('rid'));
+            expect(rids).toContain('482886413b977930064a5888b92134fe'); // our own device
+            expect(rids).toContain(goodguy_device);
+            expect(rids).not.toContain(baddy_device);
+
+            // No bundle request should ever have been sent for baddy's device.
+            expect(mock.bundleIQRequestSent(_converse, baddy_jid, baddy_device)).toBeUndefined();
+        }),
+    );
+
+    it(
+        'still sends to other recipients when one device has no fetchable bundle',
+        mock.initConverse(converse, ['chatBoxesFetched'], {}, async function (_converse) {
+            // Regression test for https://github.com/conversejs/converse.js/issues/2578
+            // ("OMEMO muc read only"): a single recipient device whose bundle
+            // cannot be fetched must be dropped, not abort the whole send and
+            // leave the message stuck (greyed-out) in the input.
+            const features = [
+                'http://jabber.org/protocol/muc',
+                'jabber:iq:register',
+                'muc_passwordprotected',
+                'muc_hidden',
+                'muc_temporary',
+                'muc_membersonly',
+                'muc_unmoderated',
+                'muc_nonanonymous',
+            ];
+            const { api } = _converse;
+            const { jid: own_jid } = api.connection.get();
+            const muc_jid = 'lounge@montague.lit';
+            await mock.openAndEnterMUC(_converse, muc_jid, 'romeo', features);
+            const view = _converse.chatboxviews.get(muc_jid);
+            await u.waitUntil(() => mock.initializedOMEMO(_converse));
+
+            const toolbar = await u.waitUntil(() => view.querySelector('.chat-toolbar'));
+            const el = await u.waitUntil(() => toolbar.querySelector('.toggle-omemo'));
+            el.click();
+            expect(view.model.get('omemo_active')).toBe(true);
+
+            const goodguy_jid = 'goodguy@montague.lit';
+            const flaky_jid = 'flaky@montague.lit';
+            const goodguy_device = 'a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1';
+            const flaky_device = 'f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0';
+
+            for (const [nick, jid] of [
+                ['goodguy', goodguy_jid],
+                ['flaky', flaky_jid],
+            ]) {
+                _converse.api.connection.get()._dataRecv(
+                    mock.createRequest(
+                        _converse,
+                        stx`<presence to='romeo@montague.lit/orchard' from='${muc_jid}/${nick}' xmlns="jabber:client">
+                            <x xmlns='${Strophe.NS.MUC_USER}'>
+                                <item affiliation='member' jid='${jid}/resource' role='participant'/>
+                            </x>
+                        </presence>`,
+                    ),
+                );
+            }
+
+            await u.waitUntil(() => mock.deviceListFetched(_converse, goodguy_jid, [goodguy_device]));
+            await u.waitUntil(() => mock.deviceListFetched(_converse, flaky_jid, [flaky_device]));
+
+            const textarea = view.querySelector('.chat-textarea');
+            textarea.value = 'This must still go out to goodguy';
+            view.querySelector('converse-muc-message-form').onKeyDown({
+                target: textarea,
+                preventDefault: function preventDefault() {},
+                key: 'Enter',
+            });
+
+            // goodguy's and our own bundle resolve successfully...
+            await u.waitUntil(() =>
+                mock.bundleFetched(_converse, {
+                    jid: goodguy_jid,
+                    device_id: goodguy_device,
+                    identity_key: '3333',
+                    signed_prekey_id: '4223',
+                    signed_prekey_public: '1111',
+                    signed_prekey_sig: '2222',
+                    prekeys: ['1001', '1002', '1003'],
+                }),
+            );
+            await u.waitUntil(() =>
+                mock.bundleFetched(_converse, {
+                    jid: _converse.bare_jid,
+                    device_id: '482886413b977930064a5888b92134fe',
+                    identity_key: '300000',
+                    signed_prekey_id: '4224',
+                    signed_prekey_public: '100000',
+                    signed_prekey_sig: '200000',
+                    prekeys: ['1991', '1992', '1993'],
+                }),
+            );
+
+            // ...but flaky's bundle request is answered with item-not-found.
+            const flaky_iq = await u.waitUntil(() =>
+                mock.bundleIQRequestSent(_converse, flaky_jid, flaky_device),
+            );
+            _converse.api.connection.get()._dataRecv(
+                mock.createRequest(
+                    _converse,
+                    stx`<iq from="${flaky_jid}" id="${flaky_iq.getAttribute('id')}" to="${_converse.bare_jid}" type="error" xmlns="jabber:client">
+                        <error type="cancel">
+                            <item-not-found xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/>
+                        </error>
+                    </iq>`,
+                ),
+            );
+
+            // The message is still sent, addressed to goodguy and ourselves only.
+            const sent_stanzas = _converse.api.connection.get().sent_stanzas;
+            const sent_stanza = await u.waitUntil(
+                () => sent_stanzas.filter((s) => sizzle('body', s).length).pop(),
+                1000,
+            );
+            const rids = sizzle('encrypted header key', sent_stanza).map((k) => k.getAttribute('rid'));
+            expect(rids).toContain('482886413b977930064a5888b92134fe'); // our own device
+            expect(rids).toContain(goodguy_device);
+            expect(rids).not.toContain(flaky_device);
+
+            // The message left the textarea (i.e. it wasn't stuck/greyed out).
+            expect(view.querySelector('.chat-textarea').value).toBe('');
+        }),
+    );
+
+    it(
+        'gracefully handles auth errors when trying to send encrypted groupchat messages',
+        mock.initConverse(converse, ['chatBoxesFetched'], {}, async function (_converse) {
+            // MEMO encryption works only in members only conferences
+            // that are non-anonymous.
+            const features = [
+                'http://jabber.org/protocol/muc',
+                'jabber:iq:register',
+                'muc_passwordprotected',
+                'muc_hidden',
+                'muc_temporary',
+                'muc_membersonly',
+                'muc_unmoderated',
+                'muc_nonanonymous',
+            ];
+            await mock.openAndEnterMUC(_converse, 'lounge@montague.lit', 'romeo', features);
+            const view = _converse.chatboxviews.get('lounge@montague.lit');
+            await u.waitUntil(() => mock.initializedOMEMO(_converse));
+
+            const contact_jid = 'newguy@montague.lit';
+            let stanza = stx`<presence to="romeo@montague.lit/orchard"
+                            from="lounge@montague.lit/newguy"
+                            xmlns="jabber:client">
+                    <x xmlns="${Strophe.NS.MUC_USER}">
+                        <item affiliation="member"
+                            jid="newguy@montague.lit/_converse.js-290929789"
+                            role="participant"/>
+                    </x>
+                </presence>`;
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+
+            const toolbar = await u.waitUntil(() => view.querySelector('.chat-toolbar'));
+            const toggle = await u.waitUntil(() => toolbar.querySelector('.toggle-omemo'));
+            toggle.click();
+            expect(view.model.get('omemo_active')).toBe(true);
+            expect(view.model.get('omemo_supported')).toBe(true);
+
+            const textarea = await u.waitUntil(() => view.querySelector('.chat-textarea'));
+            textarea.value = 'This message will be encrypted';
+            const message_form = view.querySelector('converse-muc-message-form');
+            message_form.onKeyDown({
+                target: textarea,
+                preventDefault: function preventDefault() {},
+                key: 'Enter',
+            });
+            await u.waitUntil(() =>
+                mock.deviceListFetched(_converse, contact_jid, ['4e30f35051b7b8b42abe083742187228']),
+            );
+
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+            await u.waitUntil(() => _converse.state.omemo_store);
+            expect(_converse.state.devicelists.length).toBe(2);
+
+            const devicelist = _converse.state.devicelists.get(contact_jid);
+            await u.waitUntil(() => mock.deviceListFetched(_converse, contact_jid));
+            expect(devicelist.devices.length).toBe(1);
+            expect(devicelist.devices.at(0).get('id')).toBe('4e30f35051b7b8b42abe083742187228');
+
+            let iq_stanza = await u.waitUntil(() =>
+                mock.bundleIQRequestSent(_converse, _converse.bare_jid, '482886413b977930064a5888b92134fe'),
+            );
+            stanza = stx`<iq from="${_converse.bare_jid}"
+                          id="${iq_stanza.getAttribute('id')}"
+                          to="${_converse.bare_jid}"
+                          type="result"
+                          xmlns="jabber:client">
+                    <pubsub xmlns="http://jabber.org/protocol/pubsub">
+                        <items node="eu.siacs.conversations.axolotl.bundles:482886413b977930064a5888b92134fe">
+                            <item>
+                                <bundle xmlns="eu.siacs.conversations.axolotl">
+                                    <signedPreKeyPublic signedPreKeyId="4223">${btoa('100000')}</signedPreKeyPublic>
+                                    <signedPreKeySignature>${btoa('200000')}</signedPreKeySignature>
+                                    <identityKey>${btoa('300000')}</identityKey>
+                                    <prekeys>
+                                        <preKeyPublic preKeyId="1">${btoa('1991')}</preKeyPublic>
+                                        <preKeyPublic preKeyId="2">${btoa('1992')}</preKeyPublic>
+                                        <preKeyPublic preKeyId="3">${btoa('1993')}</preKeyPublic>
+                                    </prekeys>
+                                </bundle>
+                            </item>
+                        </items>
+                    </pubsub>
+                </iq>`;
+
+            iq_stanza = await u.waitUntil(() =>
+                mock.bundleIQRequestSent(_converse, contact_jid, '4e30f35051b7b8b42abe083742187228'),
+            );
+
+            stanza = stx`<iq from="${contact_jid}"
+                          id="${iq_stanza.getAttribute('id')}"
+                          to="${_converse.bare_jid}"
+                          type="error"
+                          xmlns="jabber:client">
+                <pubsub xmlns="http://jabber.org/protocol/pubsub">
+                    <items node="eu.siacs.conversations.axolotl.bundles:4e30f35051b7b8b42abe083742187228"/>
+                </pubsub>
+                <error code="401" type="auth">
+                    <presence-subscription-required xmlns="http://jabber.org/protocol/pubsub#errors"/>
+                    <not-authorized xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/>
+                </error>
+            </iq>`;
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+
+            await u.waitUntil(() => document.querySelectorAll('.alert-danger').length, 2000);
+            const header = document.querySelector('.alert-danger .modal-title');
+            expect(header.textContent).toBe('Error');
+            expect(u.ancestor(header, '.modal-content').querySelector('.modal-body p').textContent.trim()).toBe(
+                "Sorry, we're unable to send an encrypted message because newguy@montague.lit requires you " +
+                    'to be subscribed to their presence in order to see their OMEMO information',
+            );
+
+            expect(view.model.get('omemo_supported')).toBe(false);
+            expect(view.querySelector('.chat-textarea').value).toBe('This message will be encrypted');
+        }),
+    );
+
+    it(
+        'adds a toolbar button for starting an encrypted groupchat session',
+        mock.initConverse(converse, ['chatBoxesFetched'], {}, async function (_converse) {
+            await mock.waitForRoster(_converse, 'current', 0);
+            await mock.waitUntilDiscoConfirmed(
+                _converse,
+                _converse.bare_jid,
+                [{ 'category': 'pubsub', 'type': 'pep' }],
+                ['http://jabber.org/protocol/pubsub#publish-options'],
+            );
+
+            // MEMO encryption works only in members-only conferences that are non-anonymous.
+            const features = [
+                'http://jabber.org/protocol/muc',
+                'jabber:iq:register',
+                'muc_passwordprotected',
+                'muc_hidden',
+                'muc_temporary',
+                'muc_membersonly',
+                'muc_unmoderated',
+                'muc_nonanonymous',
+            ];
+            await mock.openAndEnterMUC(_converse, 'lounge@montague.lit', 'romeo', features);
+            const view = _converse.chatboxviews.get('lounge@montague.lit');
+            await u.waitUntil(() => mock.initializedOMEMO(_converse));
+
+            const toolbar = await u.waitUntil(() => view.querySelector('.chat-toolbar'));
+            let toggle = await u.waitUntil(() => toolbar.querySelector('.toggle-omemo'));
+            expect(view.model.get('omemo_active')).toBe(undefined);
+            expect(view.model.get('omemo_supported')).toBe(true);
+            await u.waitUntil(() => toggle.dataset.disabled === 'false');
+
+            let icon = toolbar.querySelector('.toggle-omemo converse-icon');
+            expect(u.hasClass('fa-unlock', icon)).toBe(true);
+            expect(u.hasClass('fa-lock', icon)).toBe(false);
+
+            toggle.click();
+            toggle = toolbar.querySelector('.toggle-omemo');
+            expect(toggle.dataset.disabled).toBe('false');
+            expect(view.model.get('omemo_active')).toBe(true);
+            expect(view.model.get('omemo_supported')).toBe(true);
+
+            await u.waitUntil(() => !u.hasClass('fa-unlock', toolbar.querySelector('.toggle-omemo converse-icon')));
+            expect(u.hasClass('fa-lock', toolbar.querySelector('.toggle-omemo converse-icon'))).toBe(true);
+
+            let contact_jid = 'newguy@montague.lit';
+            let stanza = stx`
+                <presence to="romeo@montague.lit/orchard"
+                          from="lounge@montague.lit/newguy"
+                          xmlns="jabber:client">
+                    <x xmlns="${Strophe.NS.MUC_USER}">
+                        <item affiliation="member"
+                              jid="newguy@montague.lit/_converse.js-290929789"
+                              role="participant"/>
+                    </x>
+                </presence>`;
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+
+            let iq_stanza = await u.waitUntil(() => mock.deviceListFetched(_converse, contact_jid));
+            expect(iq_stanza).toEqualStanza(
+                stx`<iq from="romeo@montague.lit" id="${iq_stanza.getAttribute('id')}" to="${contact_jid}" type="get" xmlns="jabber:client">
+                        <pubsub xmlns="http://jabber.org/protocol/pubsub">
+                            <items node="eu.siacs.conversations.axolotl.devicelist"/>
+                        </pubsub>
+                    </iq>`,
+            );
+
+            stanza = stx`
+                <iq from="${contact_jid}"
+                    id="${iq_stanza.getAttribute('id')}"
+                    to="${_converse.bare_jid}"
+                    type="result"
+                    xmlns="jabber:client">
+                    <pubsub xmlns="http://jabber.org/protocol/pubsub">
+                        <items node="eu.siacs.conversations.axolotl.devicelist">
+                            <item xmlns="http://jabber.org/protocol/pubsub">
+                                <list xmlns="eu.siacs.conversations.axolotl">
+                                    <device id="4e30f35051b7b8b42abe083742187228"/>
+                                    <device id="ae890ac52d0df67ed7cfdf51b644e901"/>
+                                </list>
+                            </item>
+                        </items>
+                    </pubsub>
+                </iq>`;
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+            await u.waitUntil(() => _converse.state.omemo_store);
+            expect(_converse.state.devicelists.length).toBe(2);
+
+            await u.waitUntil(() => mock.deviceListFetched(_converse, contact_jid));
+            const devicelist = _converse.state.devicelists.get(contact_jid);
+            expect(devicelist.devices.length).toBe(2);
+            expect(devicelist.devices.at(0).get('id')).toBe('4e30f35051b7b8b42abe083742187228');
+            expect(devicelist.devices.at(1).get('id')).toBe('ae890ac52d0df67ed7cfdf51b644e901');
+
+            expect(view.model.get('omemo_active')).toBe(true);
+            toggle = toolbar.querySelector('.toggle-omemo');
+            expect(toggle === null).toBe(false);
+            expect(toggle.dataset.disabled).toBe('false');
+            expect(view.model.get('omemo_supported')).toBe(true);
+
+            await u.waitUntil(() => !u.hasClass('fa-unlock', toolbar.querySelector('.toggle-omemo converse-icon')));
+            expect(u.hasClass('fa-lock', toolbar.querySelector('.toggle-omemo converse-icon'))).toBe(true);
+
+            // Test that the button gets disabled when the room becomes
+            // anonymous or semi-anonymous
+            view.model.features.save({ 'nonanonymous': false, 'semianonymous': true });
+            await u.waitUntil(() => !view.model.get('omemo_supported'));
+            await u.waitUntil(() => view.querySelector('.toggle-omemo').dataset.disabled === 'true');
+
+            view.model.features.save({ 'nonanonymous': true, 'semianonymous': false });
+            await u.waitUntil(() => view.model.get('omemo_supported'));
+            await u.waitUntil(() => view.querySelector('.toggle-omemo') !== null);
+            expect(u.hasClass('fa-unlock', toolbar.querySelector('.toggle-omemo converse-icon'))).toBe(true);
+            expect(u.hasClass('fa-lock', toolbar.querySelector('.toggle-omemo converse-icon'))).toBe(false);
+            expect(view.querySelector('.toggle-omemo').dataset.disabled).toBe('false');
+
+            // Test that the button gets disabled when the room becomes open
+            view.model.features.save({ 'membersonly': false, 'open': true });
+            await u.waitUntil(() => !view.model.get('omemo_supported'));
+            await u.waitUntil(() => view.querySelector('.toggle-omemo').dataset.disabled === 'true');
+
+            view.model.features.save({ 'membersonly': true, 'open': false });
+            await u.waitUntil(() => view.model.get('omemo_supported'));
+            await u.waitUntil(() => view.querySelector('.toggle-omemo').dataset.disabled === 'false');
+
+            expect(u.hasClass('fa-unlock', view.querySelector('.toggle-omemo converse-icon'))).toBe(true);
+            expect(u.hasClass('fa-lock', view.querySelector('.toggle-omemo converse-icon'))).toBe(false);
+
+            expect(view.model.get('omemo_supported')).toBe(true);
+            expect(view.model.get('omemo_active')).toBe(false);
+
+            view.querySelector('.toggle-omemo').click();
+            expect(view.model.get('omemo_active')).toBe(true);
+
+            // Someone enters the room who doesn't have OMEMO support, while we
+            // have OMEMO activated...
+            contact_jid = 'oldguy@montague.lit';
+            stanza = stx`
+                <presence to="romeo@montague.lit/orchard"
+                          from="lounge@montague.lit/oldguy"
+                          xmlns="jabber:client">
+                    <x xmlns="${Strophe.NS.MUC_USER}">
+                        <item affiliation="member"
+                              jid="${contact_jid}/_converse.js-290929788"
+                              role="participant"/>
+                    </x>
+                </presence>`;
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+            iq_stanza = await u.waitUntil(() => mock.deviceListFetched(_converse, contact_jid));
+            expect(iq_stanza).toEqualStanza(
+                stx`<iq from="romeo@montague.lit" id="${iq_stanza.getAttribute('id')}" to="${contact_jid}" type="get" xmlns="jabber:client">
+                        <pubsub xmlns="http://jabber.org/protocol/pubsub">
+                            <items node="eu.siacs.conversations.axolotl.devicelist"/>
+                        </pubsub>
+                    </iq>`,
+            );
+
+            stanza = stx`
+                <iq from="${contact_jid}"
+                    id="${iq_stanza.getAttribute('id')}"
+                    to="${_converse.bare_jid}"
+                    type="error"
+                    xmlns="jabber:client">
+                    <error type="cancel">
+                        <item-not-found xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/>
+                    </error>
+                </iq>`;
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+
+            // `item-not-found` is an authoritative "this contact has no device
+            // list", so getDevicesForContact does NOT retry (only transient
+            // failures are retried). A single response is enough to conclude
+            // that OMEMO is no longer supported in this groupchat.
+            await u.waitUntil(() => !view.model.get('omemo_supported'));
+            await u.waitUntil(
+                () =>
+                    view.querySelector('.chat-error .chat-info__message')?.textContent.trim() ===
+                    "oldguy doesn't appear to have a client that supports OMEMO. " +
+                        'Encrypted chat will no longer be possible in this grouchat.',
+            );
+
+            await u.waitUntil(() => toolbar.querySelector('.toggle-omemo').dataset.disabled === 'true');
+            icon = view.querySelector('.toggle-omemo converse-icon');
+            expect(u.hasClass('fa-unlock', icon)).toBe(true);
+            expect(u.hasClass('fa-lock', icon)).toBe(false);
+            expect(toolbar.querySelector('.toggle-omemo').title).toBe(
+                'This groupchat needs to be members-only and non-anonymous in order to support OMEMO encrypted messages',
+            );
+        }),
+    );
+});

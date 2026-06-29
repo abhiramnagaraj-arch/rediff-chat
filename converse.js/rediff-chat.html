@@ -1,0 +1,50 @@
+<!doctype html>
+<html class="no-js" lang="en">
+    <head>
+        <title>Rediff Enterprise Chat</title>
+        <meta charset="utf-8" />
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="Rediff Enterprise Chat" />
+        <link rel="shortcut icon" type="image/ico" href="./dist/images/favicon.ico" />
+        <link rel="manifest" href="./manifest.json" />
+        <link type="text/css" rel="stylesheet" media="screen" href="./dist/converse.min.css" />
+        <link type="text/css" rel="stylesheet" media="screen" href="./rediff-chat.css" />
+        <link type="text/css" rel="stylesheet" media="screen" href="./custom/google-chat.css?v=modern-20260629-6" />
+        <script type="module" src="./dist/converse.min.js"></script>
+    </head>
+    <body class="converse-fullscreen rediff-chat">
+        <noscript>You need to enable JavaScript to run Rediff Enterprise Chat.</noscript>
+        <div class="rediff-shell">
+            <header class="rediff-topbar" aria-label="Rediff Enterprise Chat">
+                <div>
+                    <p class="rediff-kicker">Rediff Enterprise</p>
+                    <h1>Chat</h1>
+                </div>
+                <div class="rediff-vhosts" aria-label="Available chat domains">
+                    <span>v1.chat.rediff.com</span>
+                    <span>v2.chat.rediff.com</span>
+                    <span>v3.chat.rediff.com</span>
+                    <span>v4.chat.rediff.com</span>
+                </div>
+            </header>
+            <main id="conversejs-bg" class="rediff-chat-stage" aria-label="Chat workspace"></main>
+        </div>
+        <script type="application/json" id="converse-config">
+        {
+            "authentication": "login",
+            "auto_away": 300,
+            "auto_reconnect": true,
+            "clear_cache_on_logout": true,
+            "discover_connection_methods": false,
+            "message_archiving": "always",
+            "muc_domain": "conference.v1.chat.rediff.com",
+            "nickname": "Rediff Chat",
+            "show_background": false,
+            "view_mode": "fullscreen"
+        }
+        </script>
+        <script type="module" src="./rediff-init.js?v=auto-open-20260629-2"></script>
+    </body>
+</html>

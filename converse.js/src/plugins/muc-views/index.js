@@ -1,0 +1,89 @@
+/**
+ * @copyright The Converse.js developers
+ * @description XEP-0045 Multi-User Chat Views
+ * @license Mozilla Public License (MPLv2)
+ */
+import {api, converse, constants} from '@converse/headless';
+import '../chatboxviews/index.js';
+import './affiliation-form.js';
+import './role-form.js';
+import MUCView from './muc.js';
+import {clearHistory, confirmDirectMUCInvitation, parseMessageForMUCCommands} from './utils.js';
+
+const {Strophe} = converse.env;
+const {CHATROOMS_TYPE} = constants;
+
+import './styles/index.scss';
+
+converse.MUC.VIEWS = {
+    CONFIG: 'config-form',
+}
+
+converse.plugins.add('converse-muc-views', {
+    dependencies: ['converse-modal', 'converse-dragresize', 'converse-controlbox', 'converse-chatview'],
+
+    initialize() {
+        const {_converse} = this;
+
+        // Configuration values for this plugin
+        // ====================================
+        // Refer to docs/source/configuration.rst for explanations of these
+        // configuration settings.
+        api.settings.extend({
+            'auto_list_rooms': false,
+            'cache_muc_messages': true,
+            'locked_muc_nickname': false,
+            'modtools_disable_query': [],
+            'muc_disable_slash_commands': false,
+            'muc_mention_autocomplete_filter': 'contains',
+            'muc_mention_autocomplete_min_chars': 0,
+            'muc_mention_autocomplete_show_avatar': true,
+            'muc_roomid_policy': null,
+            'muc_roomid_policy_hint': null,
+            'muc_search_service': 'api@search.jabber.network',
+            'roomconfig_whitelist': [],
+            'show_retraction_warning': true,
+        });
+
+        const exports = {
+            ChatRoomView: MUCView,
+            MUCView
+        };
+        Object.assign(_converse, exports); // DEPRECATED
+        Object.assign(_converse.exports, exports);
+
+        if (!api.settings.get('muc_domain')) {
+            // Use service discovery to get the default MUC domain
+            api.listen.on('serviceDiscovered', async (feature) => {
+                if (feature?.get('var') === Strophe.NS.MUC) {
+                    if (feature.entity.get('jid').includes('@')) {
+                        // Ignore full JIDs, we're only looking for a MUC service, not a room
+                        return;
+                    }
+                    const identity = await feature.entity.getIdentity('conference', 'text');
+                    if (identity) {
+                        api.settings.set('muc_domain', Strophe.getDomainFromJid(feature.get('from')));
+                    }
+                }
+            });
+        }
+
+        api.listen.on('clearsession', () => {
+            const view = _converse.chatboxviews.get('controlbox');
+            if (view && view.roomspanel) {
+                view.roomspanel.model.destroy();
+                view.roomspanel.remove();
+                delete view.roomspanel;
+            }
+        });
+
+        api.listen.on('chatBoxClosed', (model) => {
+            if (model.get('type') === CHATROOMS_TYPE) {
+                clearHistory(model.get('jid'));
+            }
+        });
+
+        api.listen.on('parseMessageForCommands', parseMessageForMUCCommands);
+        api.listen.on('confirmDirectMUCInvitation', confirmDirectMUCInvitation);
+    }
+});

@@ -39,30 +39,24 @@
             "userinfo.token.claim": "true",
             "multivalued": "false"
           }
+        },
+        {
+          "name": "assigned-vhost",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "assigned_vhost",
+            "claim.name": "assigned_vhost",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "false"
+          }
         }
       ]
     }
   ],
-  "users": [
-    {
-      "username": "demo.user",
-      "enabled": true,
-      "email": "demo.user@rediff.local",
-      "emailVerified": true,
-      "firstName": "Demo",
-      "lastName": "User",
-      "attributes": {
-        "tenant_slug": [
-          "demo"
-        ]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "password123",
-          "temporary": false
-        }
-      ]
-    }
-  ]
+  "users": []
 }

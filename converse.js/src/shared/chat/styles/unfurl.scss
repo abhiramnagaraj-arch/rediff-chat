@@ -1,0 +1,56 @@
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "shared/styles/_mixins.scss";
+
+.conversejs {
+    converse-message-unfurl {
+        .card {
+            background-color: var(--background-color);
+            &.card--unfurl {
+                .card-body {
+                    .card-title {
+                        font-size: 95%;
+                        font-weight: bold;
+                    }
+                }
+                .card-text {
+                    converse-rich-text {
+                        font-size: 90%;
+                    }
+                }
+            }
+        }
+    }
+
+    converse-chats {
+        &.converse-embedded,
+        &.converse-fullscreen {
+            .message {
+                .card--unfurl {
+                    margin: 0.5em 0;
+                    @include media-breakpoint-down(sm) {
+                        max-width: 95%;
+                    }
+                    @include media-breakpoint-up(md) {
+                        max-width: 75%;
+                    }
+                    @include media-breakpoint-up(lg) {
+                        max-width: 60%;
+                    }
+                    @include media-breakpoint-up(xl) {
+                        max-width: 30%;
+                    }
+                }
+            }
+        }
+
+        &.converse-overlayed {
+            .message {
+                .card--unfurl {
+                    margin: 0.5em 0;
+                    max-width: 95%;
+                }
+            }
+        }
+    }
+}

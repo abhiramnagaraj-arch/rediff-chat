@@ -1,0 +1,35 @@
+converse-muc-details-modal {
+    .features-list {
+        margin-inline-start: 1em;
+    }
+
+    .room-info {
+        converse-avatar {
+            display: block;
+            margin-bottom: 0.5em;
+            margin-inline-end: 1em;
+            float: left;
+        }
+        strong {
+            color: var(--muc-color);
+            margin-right: 0.5em;
+        }
+    }
+
+    .chatroom-features {
+        width: 100%;
+        .features-list {
+            padding-top: 0;
+            .feature {
+                width: 100%;
+                margin-inline-end: 0.5em;
+                padding-inline-end: 0;
+                font-size: 1em;
+                cursor: help;
+                converse-icon {
+                    margin-inline-end: 0.5em;
+                }
+            }
+        }
+    }
+}

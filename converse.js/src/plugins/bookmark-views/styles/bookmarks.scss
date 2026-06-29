@@ -1,0 +1,26 @@
+.conversejs {
+    #controlbox {
+        .bookmarks-toggle, .bookmarks-toggle .fa {
+            color: var(--muc-color) !important;
+            &:hover {
+                color: var(--muc-color-hover) !important;
+            }
+        }
+    }
+}
+
+converse-bookmarks {
+    .list-item-link {
+        padding: 0 1em;
+    }
+    .available-chatroom {
+        &:hover {
+            .list-item-action {
+                opacity: 1 !important;
+                converse-icon svg {
+                    fill: var(--muc-color);
+                }
+            }
+        }
+    }
+}

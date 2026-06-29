@@ -1,0 +1,51 @@
+{
+  "include": [
+      "**/*.js",
+      "**/*.ts",
+  ],
+  "exclude": [
+      "**/*.js.map",
+      "**/dist/**/*",
+      "**/tests/*",
+      "types/**/*",
+  ],
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "esnext",
+
+    "types": [
+      "@types/webappsec-credential-management"
+    ],
+
+    "lib": [
+      "es2023",
+      "dom"
+    ],
+
+    "allowJs": true,
+    "checkJs": true,
+
+    // Generate d.ts files
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationMap": true,
+
+    "rootDir": "./",
+    "outDir": "./types/",
+    "baseUrl": "./",
+    "paths": {
+      "@converse/log": ["../log/types/index.d.ts"]
+    },
+
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "strict": false,
+    "noImplicitAny": false,
+
+    "skipLibCheck": true,
+
+    "moduleResolution": "node",
+    "resolveJsonModule": true
+  }
+}

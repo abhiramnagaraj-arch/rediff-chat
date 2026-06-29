@@ -1,0 +1,115 @@
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "bootstrap/scss/mixins";
+@import "shared/styles/_variables.scss";
+
+@import "./controlbox.scss";
+@import "./muc.scss";
+@import "./muc-audio-player.scss";
+
+converse-muc-disconnected,
+converse-muc-destroyed {
+    padding: 2em;
+    width: 100%;
+    height: 100%;
+}
+
+.conversejs.converse-embedded,
+.conversejs {
+    .badge--muc {
+        background-color: var(--muc-color);
+    }
+
+    .add-chatroom {
+        input[type="submit"],
+        input[type="button"] {
+            margin: 0.3em 0;
+        }
+    }
+}
+
+.conversejs {
+    converse-chats {
+        &.converse-overlayed {
+            .chatbox {
+                &.chatroom {
+                    width: var(--chatroom-width);
+                    .box-flyout {
+                        width: var(--chatroom-width);
+                    }
+                    .chatbox-title__text {
+                        @include make-col(10);
+                    }
+                    .chatbox-title__buttons {
+                        @include make-col(2);
+                    }
+
+                    .chat-head__desc {
+                        font-size: 80%;
+                        margin-bottom: 1em;
+                    }
+                    .chatroom-body {
+                        .chat-area {
+                            min-width: var(--overlayed-chat-width);
+                        }
+                    }
+                }
+            }
+        }
+
+        &.converse-embedded,
+        &.converse-fullscreen {
+
+            .chatroom {
+                .box-flyout {
+                    width: 100%;
+
+                    .chatroom-body {
+                        .chat-area {
+                            &.full {
+                                .new-msgs-indicator {
+                                    max-width: 100%;
+                                }
+                            }
+                        }
+                    }
+                }
+                .room-invite {
+                    span {
+                        .invited-contact {
+                            margin: 0 0 0.5em -1px;
+                        }
+                    }
+                }
+            }
+        }
+
+        &.converse-embedded {
+            .chatroom {
+                margin: 0;
+                width: 100%;
+                .box-flyout {
+                    .chat-content {
+                        .chat-message {
+                            margin: 0.5em;
+                            font-size: 120%;
+                        }
+                    }
+                    .chat-message-form {
+                        .chat-textarea {
+                            padding: 0.5em;
+                            font-size: 110%;
+                        }
+                    }
+                    .chatroom-body {
+                        height: 100%;
+                        .muc-form-container {
+                            height: 100%;
+                            position: relative;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

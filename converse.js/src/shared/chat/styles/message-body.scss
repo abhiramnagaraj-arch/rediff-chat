@@ -1,0 +1,37 @@
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "shared/styles/_mixins.scss";
+
+converse-chat-message-body {
+    margin-inline-end: 0.5em;
+    overflow-y: hidden; // Hide zalgo text that overflows vertically
+
+    audio {
+        display: block;
+        max-width: 95%;
+    }
+
+    video {
+        display: block;
+        max-height: 30em;
+        @include media-breakpoint-down(sm) {
+            max-width: 95%;
+        }
+        @include media-breakpoint-up(md) {
+            max-width: 70%;
+        }
+    }
+}
+
+.converse-overlayed {
+    converse-chat-message-body {
+        audio {
+            display: block;
+            max-width: 100%;
+        }
+        video {
+            display: block;
+            max-width: 100%;
+        }
+    }
+}

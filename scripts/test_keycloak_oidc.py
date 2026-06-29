@@ -29,8 +29,8 @@ def main() -> int:
     parser.add_argument("--keycloak", default="http://localhost:18080", help="Keycloak base URL")
     parser.add_argument("--realm", default="rediff", help="Keycloak realm")
     parser.add_argument("--client", default="rediff-web", help="Keycloak client_id")
-    parser.add_argument("--user", default="demo.user", help="Keycloak username")
-    parser.add_argument("--password", default="password123", help="Keycloak password")
+    parser.add_argument("--user", required=True, help="Keycloak username")
+    parser.add_argument("--password", required=True, help="Keycloak password")
     parser.add_argument("--auth-service", default="http://localhost:8000", help="Auth service base URL")
     args = parser.parse_args()
 

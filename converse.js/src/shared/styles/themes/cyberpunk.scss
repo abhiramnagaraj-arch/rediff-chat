@@ -1,0 +1,386 @@
+// https://bootswatch.com/vapor
+
+&[data-converse-theme='cyberpunk'],
+&[data-bs-theme='cyberpunk'] {
+    $theme: 'vapor' !default;
+
+    // Hex color values
+    // ----------------
+    --blue: #1ba2f6;
+    --cyan: #32fbe2;
+    --green: #3cf281;
+    --green-rgb: 60, 242, 129;
+    --indigo: #6610f2;
+    --orange: #f1b633;
+    --orange-rgb: 255, 193, 7;
+    --pink: #ea39b8;
+    --pink-rgb: 234, 57, 185;
+    --purple: #6f42c1;
+    --purple-rgb: 111, 66, 193;
+    --red: #e44c55;
+    --red-rgb: 228, 76, 84;
+    --teal: #3f81a2;
+    --teal-rgb: 63, 130, 162;
+    --white: #efefef;
+    --yellow: #ffc107;
+    --yellow-rgb: 255, 193, 7;
+
+    // Base variables
+    // --------------
+    --background-color: #1a0933;
+    --background-color-rgb: 26, 9, 51;
+    --background-color-lighter: #2c174c;
+    --foreground-color: var(--white);
+
+
+    // Bootstrap variables
+    --primary-color: var(--pink) !important;
+    --primary-rgb: var(--pink-rgb);
+    --secondary-color: var(--purple) !important;
+    --secondary-rgb: var(--purple-rgb);
+    --success-color: var(--green);
+    --success-color-rgb: var(--green-rgb);
+    --danger-color: var(--red);
+    --danger-color-rgb: var(--red-rgb);
+    --warning-color: var(--orange);
+    --info-color: var(--yellow);
+    --info-color-rgb: var(--yellow-rgb);
+
+    --converse-info: var(--info-color);
+    --converse-info-rgb: var(--info-color-rgb);
+    --converse-link-color: var(--link-color) !important;
+    --converse-link-hover-color: var(--link-color-hover) !important;
+    --converse-success: var(--success-color);
+    --converse-success-rgb: var(--success-color-rgb);
+    --converse-danger: var(--danger-color);
+    --converse-danger-rgb: var(--danger-color-rgb);
+
+    --converse-body-bg-rgb: var(--background-color-rgb);
+    --converse-body-bg: var(--background-color);
+    --converse-body-color: var(--foreground-color) !important;
+    --converse-highlight-color: var(--yellow);
+    --converse-secondary-color: var(--secondary-color);
+
+    .form-check-input:checked {
+        background-color: var(--purple);
+        border-color: var(--purple);
+    }
+    .shadow-lg {
+        --converse-box-shadow-lg: 0 1rem 3rem var(--background-color);
+    }
+    .navbar-nav {
+        --converse-nav-link-color: var(--link-color) !important;
+        --converse-nav-link-hover-color: var(--link-color-hover) !important;
+    }
+    .popover {
+        --converse-popover-header-color: var(--background-color) !important;
+        --converse-popover-header-bg: var(--info-color) !important;
+    }
+    .modal {
+        --converse-modal-color: var(--foreground-color) !important;
+    }
+    .list-group-item {
+        --converse-list-group-color: var(--foreground-color);
+        &.active {
+            --converse-list-group-active-color: var(--background-color) !important;
+        }
+    }
+    .toast {
+        --converse-toast-color: var(--background-color);
+        --converse-toast-bg: var(--secondary-color) !important;
+    }
+
+    // Online status indicators
+    --chat-status-away: var(--orange);
+    --chat-status-busy: var(--red);
+    --chat-status-offline: gray;
+    --chat-status-online: var(--green);
+
+    --controlbox-color: var(--purple);
+    --disabled-color: gray;
+    --error-color: var(--red);
+    --focus-color: var(--secondary-color);
+    --heading-color: var(--purple);
+    --link-color: var(--cyan);
+    --subdued-color: gray;
+
+    // The background when selecting text with your mouse
+    --selection-color: black;
+
+    // Used to indicate selected or open items in lists.
+    --highlight-color: var(--purple);
+    --highlight-color-hover: var(--background-color-lighter);
+
+    // 1:1 Chat-related colors
+    --chat-color: var(--green);
+    --chat-rgb: var(--green-rgb);
+    --chat-header-fg-color: var(--chat-color);
+    --chat-header-bg-color: var(--background-color);
+
+    // MUC-related colors
+    --muc-color: var(--orange);
+    --muc-rgb: var(--orange-rgb);
+    --muc-header-fg-color: var(--muc-color);
+    --muc-header-bg-color: var(--background-color);
+
+    // Headlines-related colors
+    --headlines-color: var(--teal);
+    --headlines-rgb: var(--teal-rgb);
+    --headlines-header-fg-color: var(--headlines-color);
+    --headlines-header-bg-color: var(--background-color);
+
+    // Derived colors
+    // --------------
+    --brand-heading-color: var(--cyan);
+    --chat-color-hover: var(--chat-color);
+    --danger-color-hover: var(--danger-color);
+    --global-background-color: var(--background-color);
+    --link-color-hover: var(--link-color);
+    --muc-color-hover: var(--muc-color);
+    --primary-color-hover: var(--purple);
+    --secondary-color-hover: var(--secondary-color);
+    --success-color-hover: var(--success);
+    --warning-color-hover: var(--orange);
+
+    .toggle-controlbox {
+        color: var(--foreground-color) !important;
+    }
+
+    input {
+        background-color: rgba(var(--background-color-rgb), 0.7);
+        border: 1px solid rgba(var(--pink-rgb), 0.6);
+        color: var(--foreground-color);
+        box-shadow:
+            0 0 0.25rem 0 rgba(var(--pink-rgb), 0.4),
+            0 0 1rem 0 rgba(var(--pink-rgb), 0.2) !important;
+
+        &:focus {
+            background-color: rgba(var(--background-color-rgb), 0.9);
+            border-color: var(--purple);
+            box-shadow:
+                0 0 0.5rem 0 rgba(var(--pink-rgb), 0.8),
+                0 0 1.5rem 0 rgba(var(--pink-rgb), 0.4) !important;
+            outline: none;
+        }
+
+        /* Handle browser autofill */
+        &:-webkit-autofill,
+        &:-webkit-autofill:hover,
+        &:-webkit-autofill:focus {
+            -webkit-text-fill-color: var(--foreground-color);
+            -webkit-box-shadow:
+                0 0 0px 1000px rgba(var(--background-color-rgb), 0.9) inset,
+                0 0 0.5rem 0 rgba(var(--pink-rgb), 0.8),
+                0 0 1.5rem 0 rgba(var(--pink-rgb), 0.4) !important;
+            transition: red 5000s ease-in-out 0s;
+            caret-color: var(--foreground-color);
+            background-color: rgba(var(--background-color-rgb), 0.1);
+        }
+    }
+
+    #controlbox {
+        .converse-fullscreen & {
+            converse-registration-form,
+            converse-login-form {
+                box-shadow:
+                    0 0 0.5rem 0 rgba(var(--pink-rgb), 0.6) inset,
+                    0 0 2rem 0 rgba(var(--pink-rgb), 0.3) inset,
+                    0 0 3rem 2rem rgba(var(--purple-rgb), 0.1) inset,
+                    0 0 1rem 0.5rem rgba(var(--background-color-rgb), 0.5),
+                    0 0 2rem 1rem rgba(var(--background-color-rgb), 0.4) !important;
+            }
+            .footer {
+                box-shadow:
+                    0 0 0.5rem 0 rgba(var(--pink-rgb), 0.6) inset,
+                    0 0 2rem 0 rgba(var(--pink-rgb), 0.3) inset,
+                    0 0 3rem 2rem rgba(var(--pink-rgb), 0.1) inset,
+                    0 0 1rem 0.5rem rgba(var(--background-color-rgb), 0.6),
+                    0 0 2rem 1rem rgba(var(--background-color-rgb), 0.4) !important;
+            }
+            .navbar {
+                box-shadow:
+                    0 0 0.5rem 0 rgba(var(--pink-rgb), 0.6) inset,
+                    0 0 2rem 0 rgba(var(--pink-rgb), 0.3) inset,
+                    0 0 3rem 2rem rgba(var(--purple-rgb), 0.1) inset,
+                    0 0 1rem 0.5rem rgba(var(--background-color-rgb), 0.7),
+                    0 0 2rem 1rem rgba(var(--background-color-rgb), 0.2) !important;
+            }
+            .flyout {
+                box-shadow:
+                    0 0 1rem 0rem rgba(var(--purple-rgb), 0.5) inset,
+                    0 0 2rem 0rem rgba(var(--purple-rgb), 0.2) inset,
+                    0 0 4rem 2rem rgba(var(--purple-rgb), 0.1) inset !important;
+            }
+        }
+    }
+
+    .modal-content {
+        box-shadow:
+            0 0 0.5rem 0 rgba(var(--secondary-rgb), 0.6) inset,
+            0 0 2rem 0 rgba(var(--secondary-rgb), 0.3) inset,
+            0 0 3rem 2rem rgba(var(--secondary-rgb), 0.1) inset,
+            0 0 1rem 0.5rem rgba(var(--background-color-rgb), 0.3),
+            0 0 2rem 1rem rgba(var(--background-color-rgb), 0.1) !important;
+
+        .modal-header {
+            .fa-times {
+                svg {
+                    fill: var(--primary-color);
+                }
+            }
+            .modal-title {
+                color: var(--primary-color);
+            }
+            background-color: var(--background-color);
+            box-shadow:
+                0 0 0.5rem 0 rgba(var(--primary-rgb), 0.6) inset,
+                0 0 2rem 0 rgba(var(--primary-rgb), 0.3) inset,
+                0 0 3rem 2rem rgba(var(--secondary-rgb), 0.1) inset;
+        }
+    }
+
+    .date-separator {
+        margin-bottom: 1em !important;
+        .separator-text {
+            border-radius: 50px;
+            box-shadow:
+                0 0 0.25rem rgba(var(--chat-rgb), 0.8),
+                0 0 1rem rgba(var(--chat-rgb), 0.2),
+                0 0 4rem rgba(var(--chat-rgb), 0.1) !important;
+        }
+    }
+
+    .card {
+        box-shadow:
+            inset 0 0 0.5rem rgba(var(--purple-rgb), 0.8),
+            inset 0 0 1rem rgba(var(--purple-rgb), 0.4),
+            inset 0 0 2rem rgba(var(--purple-rgb), 0.3),
+            inset 0 0 4rem rgba(var(--purple-rgb), 0.1) !important;
+    }
+
+    .chat-toolbar {
+        box-shadow:
+            0 0 0.5rem rgba(var(--chat-rgb), 0.4),
+            0 0 2rem rgba(var(--chat-rgb), 0.2),
+            0 0 4rem rgba(var(--chat-rgb), 0.1) !important;
+    }
+
+    converse-headlines-heading {
+        box-shadow:
+            0 0 1rem 0rem rgba(var(--headlines-rgb), 0.5) inset,
+            0 0 2rem 0rem rgba(var(--headlines-rgb), 0.4) inset,
+            0 0 4rem 2rem rgba(var(--headlines-rgb), 0.2) inset,
+            0 0 1rem 0rem rgba(var(--headlines-rgb), 0.4),
+            0 0 2rem 0rem rgba(var(--headlines-rgb), 0.2),
+            0 0 4rem 0rem rgba(var(--headlines-rgb), 0.1) !important;
+    }
+
+    converse-chat-heading {
+        box-shadow:
+            0 0 1rem 0rem rgba(var(--chat-rgb), 0.5) inset,
+            0 0 2rem 0rem rgba(var(--chat-rgb), 0.4) inset,
+            0 0 4rem 2rem rgba(var(--chat-rgb), 0.2) inset,
+            0 0 1rem 0rem rgba(var(--chat-rgb), 0.4),
+            0 0 2rem 0rem rgba(var(--chat-rgb), 0.2),
+            0 0 4rem 0rem rgba(var(--chat-rgb), 0.1) !important;
+    }
+
+    .chatroom {
+        .message .separator-text {
+            border-radius: 50px;
+            box-shadow:
+                0 0 0.25rem rgba(var(--muc-rgb), 0.8),
+                0 0 1rem rgba(var(--muc-rgb), 0.2),
+                0 0 4rem rgba(var(--muc-rgb), 0.1) !important;
+        }
+
+        .chat-head-chatroom {
+            box-shadow:
+                0 0 1rem 0rem rgba(var(--muc-rgb), 0.5) inset,
+                0 0 2rem 0rem rgba(var(--muc-rgb), 0.4) inset,
+                0 0 4rem 2rem rgba(var(--muc-rgb), 0.2) inset,
+                0 0 1rem 0rem rgba(var(--muc-rgb), 0.4),
+                0 0 2rem 0rem rgba(var(--muc-rgb), 0.2),
+                0 0 4rem 0rem rgba(var(--muc-rgb), 0.1) !important;
+        }
+
+        converse-muc-sidebar {
+            box-shadow: 0 0 1rem 1rem rgba(var(--muc-rgb), 0.1) inset !important;
+        }
+
+        .chat-toolbar {
+            box-shadow:
+                0 0 0.5rem rgba(var(--muc-rgb), 0.4),
+                0 0 2rem rgba(var(--muc-rgb), 0.2),
+                0 0 4rem rgba(var(--muc-rgb), 0.1) !important;
+        }
+    }
+
+    .moving-grid {
+        position: absolute;
+        top: 42%;
+        left: 0;
+        width: 100%;
+        height: 70%;
+        perspective: 1000px;
+        &:before {
+            content: '';
+            position: absolute;
+            top: 3rem;
+            width: 100%;
+            height: 0;
+            box-shadow:
+                0 0 1rem 0.5rem rgba(255, 255, 255, 0.5),
+                0 0 2rem 0rem rgba(var(--purple-rgb), 0.3),
+                0 0 4rem 2rem rgba(var(--purple-rgb), 0.1) !important;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            height: 300%;
+            border: 2px solid pink;
+            box-sizing: border-box;
+            transform-origin: top;
+            transform: rotateX(57deg) translateY(10%);
+            overflow: hidden;
+            .static-lines {
+                display: inline-block;
+                width: 100%;
+                height: 100%;
+                .vert {
+                    display: inline-block;
+                    height: 100%;
+                    width: 2px;
+                    background-color: pink;
+                    margin-inline-start: 4.5%;
+                    box-shadow: 0 2px 21px pink;
+                }
+            }
+            .moving-lines {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 300%;
+                .horz {
+                    display: inline-block;
+                    width: 100%;
+                    height: 3px;
+                    margin-top: 4.8%;
+                    background-color: pink;
+                    box-shadow: 2px 0 21px pink;
+                    animation: lines 15000ms linear infinite;
+                }
+            }
+        }
+    }
+
+    @keyframes lines {
+        from {
+            transform: translateY(-65px);
+        }
+        to {
+            transform: translateY(65px);
+        }
+    }
+}

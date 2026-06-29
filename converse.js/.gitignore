@@ -1,0 +1,82 @@
+# Distribution directory
+dist
+
+# Local working docs / implementation briefs
+briefs/
+
+# TLS certificates
+certs
+
+# conversejs/media repo checkout
+media
+
+# Editor fluff
+*~
+.sw?
+*.mo
+*.kpf
+.*.sw?
+
+.hg/
+.bzr/
+.svn/
+.project
+.pydevproject
+.idea
+.su?
+.sass-cache
+pip-selfcheck.json
+
+3rdparty/
+*.map
+
+locale.zip
+sounds.zip
+
+analytics.js
+
+# virtualenv/python/buildout
+.*.cfg
+eggs
+.Python
+build
+share
+parts
+*.pyc
+*.egg-info
+lib
+lib64
+include
+bin
+develop-eggs
+pyvenv.cfg
+
+converse-logs/*.html
+community-plugins
+
+tags
+transpile
+
+# Sphinx
+docs/html
+docs/doctrees
+
+# Node.js
+node_modules
+
+# OSX
+.DS_Store
+
+# Builds
+.sv?
+/vendor/
+.aider*
+.agents/
+.prompts/
+.agents
+
+Session.vim
+
+# Vitest browser-mode generated artifacts
+.vitest-attachments/
+**/__screenshots__/
