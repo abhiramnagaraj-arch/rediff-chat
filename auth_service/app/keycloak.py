@@ -113,8 +113,13 @@ def verify_access_token(token: str) -> dict[str, Any]:
             options={"verify_aud": False},
         )
 
-        expected_issuer = f"{KEYCLOAK_ISSUER_URL}/realms/{KEYCLOAK_REALM}"
-        if claims.get("iss") != expected_issuer:
+        token_issuer = claims.get("iss")
+        expected_issuers = {
+            f"{KEYCLOAK_ISSUER_URL}/realms/{KEYCLOAK_REALM}",
+            f"{KEYCLOAK_BASE_URL}/realms/{KEYCLOAK_REALM}",
+        }
+        if token_issuer not in expected_issuers:
+            logger.warning("Invalid Keycloak token issuer: %s expected one of %s", token_issuer, sorted(expected_issuers))
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Keycloak token")
 
         if KEYCLOAK_AUDIENCE:
@@ -177,6 +182,47 @@ def authenticate_password(*, username: str, password: str) -> dict[str, Any]:
         raise
     except Exception as exc:
         logger.warning("Keycloak credential check failed for %s: %s", username, exc)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password") from exc
+
+
+def password_access_token(*, username: str, password: str) -> str:
+    if not enabled():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Keycloak is not enabled")
+
+    payload = {
+        "grant_type": "password",
+        "client_id": KEYCLOAK_LOGIN_CLIENT_ID,
+        "username": username,
+        "password": password,
+    }
+
+    try:
+        response = requests.post(realm_url("protocol/openid-connect/token"), data=payload, timeout=10)
+        if response.status_code != 200:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+
+        access_token = response.json().get("access_token")
+        if not access_token:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+
+        claims = jwt.decode(
+            access_token,
+            options={
+                "verify_signature": False,
+                "verify_aud": False,
+                "verify_exp": False,
+            },
+            algorithms=["RS256"],
+        )
+        token_username = claims.get("preferred_username") or claims.get("username")
+        if token_username and token_username != username:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Keycloak token")
+
+        return access_token
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Keycloak token request failed for %s: %s", username, exc)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password") from exc
 
 
@@ -511,3 +557,87 @@ def get_user(username: str) -> Optional[dict[str, Any]]:
     except Exception as exc:
         logger.warning("Keycloak user fetch failed for %s: %s", username, exc)
         return None
+
+
+def _first_attribute(attributes: dict[str, list[str]], key: str) -> Optional[str]:
+    value = attributes.get(key) or []
+    return value[0] if value else None
+
+
+def _user_display_name(user: dict[str, Any], username: str) -> str:
+    first_name = str(user.get("firstName") or "").strip()
+    last_name = str(user.get("lastName") or "").strip()
+    full_name = " ".join(part for part in [first_name, last_name] if part).strip()
+    if full_name:
+        return full_name
+    return username.split("@", 1)[0]
+
+
+def search_active_users_for_tenant(query: str, tenant_slug: str, assigned_vhost: Optional[str] = None, limit: int = 20) -> list[dict[str, Any]]:
+    if not enabled():
+        return []
+
+    search = query.strip()
+    if not search:
+        return []
+
+    try:
+        response = _admin_request(
+            "GET",
+            f"/admin/realms/{KEYCLOAK_REALM}/users",
+            params={"search": search, "max": max(limit * 3, limit)},
+        )
+        users = response.json()
+    except Exception as exc:
+        logger.warning("Keycloak tenant user search failed for %s: %s", tenant_slug, exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Unable to search users") from exc
+
+    results: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    search_lower = search.lower()
+
+    for summary in users:
+        if len(results) >= limit:
+            break
+
+        user = _full_user_from_summary(summary)
+        if not user or user.get("enabled") is not True:
+            continue
+
+        username = str(user.get("username") or "").strip().lower()
+        if not username or username in seen:
+            continue
+
+        attrs = normalize_attributes(user.get("attributes"))
+        user_tenant = _first_attribute(attrs, "tenant_slug") or tenant_slug_from_username(username.split("@", 1)[0])
+        if user_tenant != tenant_slug:
+            continue
+
+        user_vhost = _first_attribute(attrs, "assigned_vhost") or assigned_vhost_from_username(username)
+        if assigned_vhost and user_vhost != assigned_vhost:
+            continue
+
+        if "@" in username:
+            jid = username
+        elif user_vhost:
+            jid = keycloak_username(username, user_vhost)
+        else:
+            continue
+
+        display_name = _user_display_name(user, username)
+        email = user.get("email")
+        haystack = " ".join(str(value or "") for value in [jid, display_name, email]).lower()
+        if search_lower not in haystack:
+            continue
+
+        seen.add(username)
+        results.append(
+            {
+                "jid": jid,
+                "display_name": display_name,
+                "email": email,
+                "tenant": user_tenant,
+            }
+        )
+
+    return results

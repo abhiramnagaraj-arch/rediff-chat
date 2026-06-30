@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from . import keycloak, schemas, user_service
+from . import database, group_service, keycloak, schemas, user_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -13,6 +13,14 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Rediff Auth Service")
 bearer_scheme = HTTPBearer(auto_error=False)
 admin_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+@app.on_event("startup")
+def startup_group_schema() -> None:
+    try:
+        database.init_group_schema()
+    except Exception as exc:
+        logger.warning("Group schema initialization failed: %s", exc)
 
 
 def _admin_token() -> str:
@@ -78,25 +86,15 @@ def authenticate_user(req: schemas.AuthRequest):
         claim_tenant = _claim_str(claims, "tenant_slug", "tenant")
         claim_server = _claim_str(claims, "assigned_vhost")
 
-        if not claim_user or not claim_tenant or not claim_server:
-            logger.warning(
-                "Keycloak required claims missing for %s: username=%s tenant=%s vhost=%s",
-                req.user,
-                bool(claim_user),
-                bool(claim_tenant),
-                bool(claim_server),
-            )
-            return schemas.AuthResponse(success=False)
-
-        if claim_user != expected_username:
+        if claim_user and claim_user != expected_username:
             logger.warning("Keycloak username mismatch for %s: %s != %s", req.user, claim_user, expected_username)
             return schemas.AuthResponse(success=False)
 
-        if claim_tenant != tenant_slug:
+        if claim_tenant and claim_tenant != tenant_slug:
             logger.warning("Keycloak tenant mismatch for %s: %s != %s", req.user, claim_tenant, tenant_slug)
             return schemas.AuthResponse(success=False)
 
-        if claim_server != req.server:
+        if claim_server and claim_server != req.server:
             logger.warning("Keycloak vhost mismatch for %s: %s != %s", req.user, claim_server, req.server)
             return schemas.AuthResponse(success=False)
 
@@ -140,6 +138,20 @@ def oidc_me(credentials: HTTPAuthorizationCredentials | None = Depends(bearer_sc
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="OIDC identity extraction failed") from exc
 
 
+@app.post("/api/oidc/token", response_model=schemas.OIDCTokenResponse)
+def oidc_token(req: schemas.OIDCTokenRequest):
+    bare_jid = req.jid.split("/", 1)[0].strip().lower()
+    if "@" not in bare_jid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="JID must include a domain")
+
+    username, server = bare_jid.rsplit("@", 1)
+    _validate_xmpp_identity(username, server)
+
+    expected_username = keycloak.keycloak_username(username, server)
+    access_token = keycloak.password_access_token(username=expected_username, password=req.password)
+    return schemas.OIDCTokenResponse(access_token=access_token)
+
+
 @app.post("/users", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(user_in: schemas.UserCreate, _: None = Depends(require_admin)):
     return user_service.create_user_in_keycloak(user_in)
@@ -160,6 +172,95 @@ def delete_user(user_id: str, _: None = Depends(require_admin)):
     return user_service.delete_user_in_keycloak(user_id)
 
 
+def _current_tenant_from_claims(claims: dict) -> str:
+    tenant = _claim_str(claims, "tenant_slug", "tenant")
+    if tenant:
+        return tenant
+
+    username = _claim_str(claims, "preferred_username", "username")
+    if username:
+        localpart = username.split("@", 1)[0]
+        return keycloak.tenant_slug_from_username(localpart)
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Tenant claim missing")
+
+
+def _current_vhost_from_claims(claims: dict) -> str:
+    vhost = _claim_str(claims, "assigned_vhost")
+    if vhost:
+        return vhost
+
+    username = _claim_str(claims, "preferred_username", "username")
+    if username and "@" in username:
+        return username.rsplit("@", 1)[1]
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="XMPP vhost claim missing")
+
+
+
+def _current_jid_from_claims(claims: dict) -> str:
+    username = _claim_str(claims, "preferred_username", "username")
+    if username and "@" in username:
+        return username.split("/", 1)[0].strip().lower()
+
+    vhost = _current_vhost_from_claims(claims)
+    if username:
+        return f"{username}@{vhost}".lower()
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current JID claim missing")
+
+
+def current_group_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> group_service.CurrentUser:
+    if not credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required")
+
+    claims = keycloak.verify_access_token(credentials.credentials)
+    return group_service.CurrentUser(
+        jid=_current_jid_from_claims(claims),
+        tenant_slug=_current_tenant_from_claims(claims),
+        vhost=_current_vhost_from_claims(claims),
+    )
+
+
+@app.get("/api/groups", response_model=list[schemas.GroupResponse])
+def list_groups(current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.list_groups(current)
+
+
+@app.post("/api/groups", response_model=schemas.GroupResponse, status_code=status.HTTP_201_CREATED)
+def create_group(req: schemas.GroupCreate, current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.create_group(req, current)
+
+
+@app.get("/api/groups/{group_id}", response_model=schemas.GroupDetailResponse)
+def get_group(group_id: int, current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.get_group(group_id, current)
+
+
+@app.patch("/api/groups/{group_id}", response_model=schemas.GroupResponse)
+def update_group(group_id: int, req: schemas.GroupUpdate, current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.update_group(group_id, req, current)
+
+
+@app.post("/api/groups/{group_id}/join", response_model=schemas.GroupJoinResponse)
+def join_group(group_id: int, current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.join_group(group_id, current)
+
+
+@app.post("/api/groups/{group_id}/members", response_model=schemas.GroupMemberResponse, status_code=status.HTTP_201_CREATED)
+def add_group_member(
+    group_id: int,
+    req: schemas.GroupMemberCreate,
+    current: group_service.CurrentUser = Depends(current_group_user),
+):
+    return group_service.add_member(group_id, req, current)
+
+
+@app.delete("/api/groups/{group_id}/members/{member_jid:path}")
+def remove_group_member(group_id: int, member_jid: str, current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.remove_member(group_id, member_jid, current)
+
+
 @app.get("/health")
 def health_check():
     try:
@@ -177,3 +278,15 @@ def health_check():
         ) from exc
 
     return {"status": "ok", "keycloak": "ok"}
+
+
+
+@app.get("/api/users/search", response_model=list[schemas.UserSearchResult])
+def search_users(q: str, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)):
+    if not credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required")
+
+    claims = keycloak.verify_access_token(credentials.credentials)
+    current_tenant = _current_tenant_from_claims(claims)
+    current_vhost = _current_vhost_from_claims(claims)
+    return keycloak.search_active_users_for_tenant(q, current_tenant, assigned_vhost=current_vhost, limit=20)

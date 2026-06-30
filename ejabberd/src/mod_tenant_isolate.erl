@@ -2,7 +2,7 @@
 -author("Rediff Enterprise").
 -behavior(gen_mod).
 
--export([start/2, stop/1, filter_packet/1, depends/2, mod_opt_type/1, mod_options/1]).
+-export([start/2, stop/1, filter_packet/1, depends/2, mod_opt_type/1, mod_options/1, sync_room_tenant/2, get_room_tenant/1]).
 
 -define(ROOM_TABLE, muc_tenant_rooms).
 
@@ -18,6 +18,19 @@ stop(Host) ->
     ok.
 
 depends(_Host, _Opts) -> [].
+
+%% Public helper for registry-managed rooms. This lets an external provisioning
+%% path pre-bind room_jid -> tenant in Mnesia instead of relying on first join.
+sync_room_tenant(RoomJid0, Tenant0) ->
+    ensure_room_table(),
+    RoomJid = to_binary(RoomJid0),
+    Tenant = to_binary(Tenant0),
+    bind_room_tenant(RoomJid, Tenant).
+
+get_room_tenant(RoomJid0) ->
+    ensure_room_table(),
+    lookup_room_tenant(to_binary(RoomJid0)).
+
 mod_opt_type(_) -> [].
 mod_options(_) -> [].
 
@@ -186,3 +199,9 @@ extract_tenant(User) when is_binary(User) ->
         _ -> undefined
     end;
 extract_tenant(_) -> undefined.
+
+to_binary(Value) when is_binary(Value) -> Value;
+to_binary(Value) when is_list(Value) -> unicode:characters_to_binary(Value);
+to_binary(Value) when is_atom(Value) -> atom_to_binary(Value, utf8);
+to_binary(Value) -> unicode:characters_to_binary(io_lib:format("~p", [Value])).
+

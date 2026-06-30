@@ -11,8 +11,10 @@
         <link rel="manifest" href="./manifest.json" />
         <link type="text/css" rel="stylesheet" media="screen" href="./dist/converse.min.css" />
         <link type="text/css" rel="stylesheet" media="screen" href="./rediff-chat.css" />
-        <link type="text/css" rel="stylesheet" media="screen" href="./custom/google-chat.css?v=modern-20260629-6" />
+        <link type="text/css" rel="stylesheet" media="screen" href="./custom/google-chat.css?v=modern-20260630-15" />
         <script type="module" src="./dist/converse.min.js"></script>
+        <script type="module" src="./rediff-new-chat.js?v=tenant-safe-20260630-15"></script>
+        <script type="module" src="./rediff-groups.js?v=tenant-groups-20260630-11"></script>
     </head>
     <body class="converse-fullscreen rediff-chat">
         <noscript>You need to enable JavaScript to run Rediff Enterprise Chat.</noscript>
@@ -31,20 +33,23 @@
             </header>
             <main id="conversejs-bg" class="rediff-chat-stage" aria-label="Chat workspace"></main>
         </div>
-        <script type="application/json" id="converse-config">
+         <script type="application/json" id="converse-config">
         {
             "authentication": "login",
+            "allow_contact_requests": true,
+            "allow_non_roster_messaging": true,
+            "blacklisted_plugins": ["converse-omemo", "converse-reactions"],
             "auto_away": 300,
             "auto_reconnect": true,
-            "clear_cache_on_logout": true,
             "discover_connection_methods": false,
             "message_archiving": "always",
             "muc_domain": "conference.v1.chat.rediff.com",
             "nickname": "Rediff Chat",
             "show_background": false,
-            "view_mode": "fullscreen"
+            "view_mode": "fullscreen",
+            "whitelisted_plugins": ["rediff_new_chat"]
         }
         </script>
-        <script type="module" src="./rediff-init.js?v=auto-open-20260629-2"></script>
+        <script type="module" src="./rediff-init.js?v=auto-open-20260629-3"></script>
     </body>
 </html>

@@ -111,6 +111,8 @@ modules:
     default_room_options:
       persistent: true
 
+  mod_muc_admin: {}
+
   mod_mam:
     db_type: sql
     assume_mam_usage: true

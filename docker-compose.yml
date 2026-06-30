@@ -22,6 +22,8 @@ services:
   rediff_auth_service:
     build:
       context: ./auth_service
+    env_file:
+      - ./postgres/.env
     container_name: rediff_auth_service
     restart: unless-stopped
     environment:
@@ -36,11 +38,15 @@ services:
       KEYCLOAK_SYNC_ENABLED: "true"
       AUTH_SERVICE_ADMIN_TOKEN: "${AUTH_SERVICE_ADMIN_TOKEN:?set in root .env}"
       ALLOWED_XMPP_VHOSTS: "v1.chat.rediff.com,v2.chat.rediff.com,v3.chat.rediff.com,v4.chat.rediff.com"
+      POSTGRES_HOST: "rediff_postgres"
+      POSTGRES_PORT: "5432"
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
       rediff_keycloak:
         condition: service_started
+      rediff_postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/health\").read()'"]
       interval: 10s
@@ -156,6 +162,7 @@ services:
       - "127.0.0.1:8081:80"
     depends_on:
       - haproxy
+      - rediff_auth_service
     networks:
       - rediff_network
 

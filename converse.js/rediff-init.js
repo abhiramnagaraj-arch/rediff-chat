@@ -18,6 +18,8 @@ if (selectedDomain) {
 
 await converse.initialize(config);
 
+const getConverseApi = () => window.rediffConverse?.api || window.converse?.api;
+
 const bareJID = (jid) => jid?.split('/')[0];
 const isChatMounted = () => Boolean(document.querySelector('.chatbox:not(#controlbox), .chatroom'));
 
@@ -36,19 +38,25 @@ function clickFirstRosterContact() {
 }
 
 async function openInitialRosterChat() {
-    try {
-        await converse.api.waitUntil('rosterContactsFetched');
-        await converse.api.waitUntil('chatBoxesFetched');
+    const api = getConverseApi();
+    if (!api?.waitUntil) {
+        clickFirstRosterContact();
+        return;
+    }
 
-        const contacts = (await converse.api.contacts.get()) || [];
-        const ownJID = bareJID(converse.api.user.jid?.());
+    try {
+        await api.waitUntil('rosterContactsFetched');
+        await api.waitUntil('chatBoxesFetched');
+
+        const contacts = (await api.contacts.get()) || [];
+        const ownJID = bareJID(api.user.jid?.());
         const firstContact = contacts.find((contact) => {
             const jid = contact?.get?.('jid');
             return jid && jid !== ownJID && !contact.get?.('requesting');
         });
 
         if (firstContact) {
-            await converse.api.chats.open(firstContact.get('jid'), {}, true);
+            await api.chats.open(firstContact.get('jid'), {}, true);
         }
 
         if (!isChatMounted()) {
