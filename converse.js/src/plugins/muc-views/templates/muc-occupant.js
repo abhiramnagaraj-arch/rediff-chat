@@ -76,7 +76,7 @@ export default (el) => {
             ${el.model
                 ? html` ${nick ? html`<li class="occupant-details-nickname">${nick}</li>` : ''}
                       <li class="occupant-details-jid">
-                          ${jid ? html`<a @click="${() => el.openChat(jid)}">${jid}</a>` : ''}
+                          ${jid || ''}
                       </li>
                       <li>
                           ${affiliation && affiliation !== 'None'

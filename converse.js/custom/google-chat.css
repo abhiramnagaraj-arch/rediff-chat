@@ -2254,3 +2254,20 @@ body.rediff-chat .rediff-add-participant-save {
     font-weight: 760;
     cursor: pointer;
 }
+
+
+/* Rediff disables Converse's MUC private-message occupant panel. */
+body.rediff-chat converse-muc-occupant .chat-body,
+body.rediff-chat converse-muc-occupant converse-occupant-bottom-panel,
+body.rediff-chat converse-muc-occupant .bottom-panel {
+    display: none !important;
+}
+
+body.rediff-chat converse-muc-occupants .occupant-list converse-muc-occupant-list-item,
+body.rediff-chat converse-muc-occupants .occupant-list .occupant {
+    cursor: default !important;
+}
+
+body.rediff-chat .rediff-duplicate-occupant {
+    display: none !important;
+}

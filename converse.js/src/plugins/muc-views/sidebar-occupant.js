@@ -39,13 +39,10 @@ export default class MUCOccupantListItem extends ObservableElement {
      * @param {MouseEvent} ev
      * @param {import('@converse/headless/types/plugins/muc/occupant.js').default} occupant
      */
-    onOccupantClicked(ev, occupant) {
+    onOccupantClicked(ev) {
         ev.preventDefault();
-        if (this.muc.getOwnOccupant() === occupant) {
-            api.modal.show("converse-profile-modal", { model: _converse.state.xmppstatus }, ev);
-        } else {
-            this.muc.save({ sidebar_view: `occupant:${occupant.id}` });
-        }
+        ev.stopPropagation();
+        this.muc.save({ sidebar_view: "occupants" });
     }
 }
 

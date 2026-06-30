@@ -436,7 +436,7 @@ converse.plugins.add('rediff_new_chat', {
             return true;
         };
 
-        const groupScriptUrl = './rediff-groups.js?v=tenant-groups-20260630-11';
+        const groupScriptUrl = './rediff-groups.js?v=tenant-groups-20260630-14';
         let groupScriptRequest = null;
 
         const ensureGroupScript = async () => {

@@ -629,6 +629,79 @@
         return mucEl?.model?.get?.('jid') || mucEl?.getAttribute?.('jid') || '';
     };
 
+    const closeOccupantPrivateView = () => {
+        document.querySelectorAll('converse-muc, converse-chatbox').forEach((mucEl) => {
+            const model = mucEl?.model;
+            if (model?.get?.('sidebar_view')?.startsWith?.('occupant:')) {
+                model.save({ sidebar_view: 'occupants' });
+            }
+        });
+    };
+
+    const disableOccupantPrivateMessaging = () => {
+        closeOccupantPrivateView();
+        document.querySelectorAll('converse-muc-occupants .occupant-list').forEach((list) => {
+            if (list.rediffNoOccupantPrivateClick) return;
+            list.rediffNoOccupantPrivateClick = true;
+            list.addEventListener(
+                'click',
+                (ev) => {
+                    if (ev.target?.closest?.('.rediff-add-participant-button, .occupant-actions, converse-dropdown, button')) return;
+                    if (!ev.target?.closest?.('converse-muc-occupant-list-item, .occupant')) return;
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    ev.stopImmediatePropagation();
+                    closeOccupantPrivateView();
+                },
+                true
+            );
+        });
+    };
+
+    const getOccupantIdentityKey = (occupant) => {
+        const jid = getBareJid(occupant?.get?.('jid'));
+        if (jid) return jid.split('@')[0];
+        const nick = getBareJid(occupant?.get?.('nick') || occupant?.getDisplayName?.());
+        return nick || occupant?.id || '';
+    };
+
+    const occupantRank = (occupant) => {
+        const presence = occupant?.get?.('presence');
+        const hasJid = Boolean(occupant?.get?.('jid'));
+        const isOffline = ['offline', 'unavailable'].includes(String(presence || '').toLowerCase());
+        return (isOffline ? 0 : 4) + (hasJid ? 1 : 0);
+    };
+
+    const dedupeParticipantLists = () => {
+        document.querySelectorAll('converse-muc-occupants').forEach((occupantsEl) => {
+            const rows = [...occupantsEl.querySelectorAll('.occupant-list converse-muc-occupant-list-item')];
+            if (!rows.length) return;
+
+            const winnerByKey = new Map();
+            for (const row of rows) {
+                const model = row.model;
+                const key = getOccupantIdentityKey(model);
+                if (!key) continue;
+                const winner = winnerByKey.get(key);
+                if (!winner || occupantRank(model) > occupantRank(winner.model)) {
+                    winnerByKey.set(key, row);
+                }
+            }
+
+            let visibleCount = 0;
+            for (const row of rows) {
+                const key = getOccupantIdentityKey(row.model);
+                const isDuplicate = key && winnerByKey.get(key) !== row;
+                row.classList.toggle('rediff-duplicate-occupant', Boolean(isDuplicate));
+                row.style.display = isDuplicate ? 'none' : '';
+                if (!isDuplicate) visibleCount += 1;
+            }
+
+            const heading = occupantsEl.querySelector('.occupants-heading');
+            if (heading) heading.textContent = `${visibleCount} ${visibleCount === 1 ? 'Participant' : 'Participants'}`;
+        });
+    };
+
     const enhanceParticipantButtons = () => {
         document.querySelectorAll('converse-muc-occupants').forEach((occupantsEl) => {
             const header = occupantsEl.querySelector('.occupants-header--title');
@@ -654,12 +727,14 @@
     const start = () => {
         injectButton();
         enhanceParticipantButtons();
-        window.setTimeout(() => { injectButton(); enhanceParticipantButtons(); }, 250);
-        window.setTimeout(() => { injectButton(); enhanceParticipantButtons(); }, 600);
-        window.setTimeout(() => { injectButton(); enhanceParticipantButtons(); }, 1200);
-        window.setTimeout(() => { injectButton(); enhanceParticipantButtons(); }, 2500);
-        window.setInterval(() => { injectButton(); enhanceParticipantButtons(); }, 2000);
-        new MutationObserver(() => { injectButton(); enhanceParticipantButtons(); }).observe(document.body, { childList: true, subtree: true });
+        disableOccupantPrivateMessaging();
+        dedupeParticipantLists();
+        window.setTimeout(() => { injectButton(); enhanceParticipantButtons(); disableOccupantPrivateMessaging(); dedupeParticipantLists(); }, 250);
+        window.setTimeout(() => { injectButton(); enhanceParticipantButtons(); disableOccupantPrivateMessaging(); dedupeParticipantLists(); }, 600);
+        window.setTimeout(() => { injectButton(); enhanceParticipantButtons(); disableOccupantPrivateMessaging(); dedupeParticipantLists(); }, 1200);
+        window.setTimeout(() => { injectButton(); enhanceParticipantButtons(); disableOccupantPrivateMessaging(); dedupeParticipantLists(); }, 2500);
+        window.setInterval(() => { injectButton(); enhanceParticipantButtons(); disableOccupantPrivateMessaging(); dedupeParticipantLists(); }, 5000);
+        new MutationObserver(() => { injectButton(); enhanceParticipantButtons(); disableOccupantPrivateMessaging(); }).observe(document.body, { childList: true, subtree: true });
         window.addEventListener('resize', injectButton);
     };
 

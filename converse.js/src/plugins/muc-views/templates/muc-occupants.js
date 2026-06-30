@@ -33,11 +33,39 @@ function isOccupantFiltered (el, occ) {
     }
 }
 
+
+function getRediffOccupantIdentityKey(occ) {
+    const jid = String(occ.get('jid') || '').split('/')[0].trim().toLowerCase();
+    if (jid) return jid.split('@')[0];
+    return String(occ.get('nick') || occ.getDisplayName?.() || occ.id || '').trim().toLowerCase();
+}
+
+function getRediffOccupantRank(occ) {
+    const presence = String(occ.get('presence') || '').toLowerCase();
+    const is_offline = ['offline', 'unavailable'].includes(presence);
+    const has_jid = Boolean(occ.get('jid'));
+    return (is_offline ? 0 : 4) + (has_jid ? 1 : 0);
+}
+
+function getRediffVisibleOccupants(occupants) {
+    const winners = new Map();
+    occupants.forEach((occ) => {
+        const key = getRediffOccupantIdentityKey(occ);
+        if (!key) return;
+        const current = winners.get(key);
+        if (!current || getRediffOccupantRank(occ) > getRediffOccupantRank(current)) {
+            winners.set(key, occ);
+        }
+    });
+    return occupants.filter((occ) => winners.get(getRediffOccupantIdentityKey(occ)) === occ);
+}
+
 /**
  * @param {import('../occupants').default} el
  */
 export default (el) => {
-    const i18n_participants = el.model.occupants === 1 ? __('Participant') : __('Participants');
+    const visible_occupants = getRediffVisibleOccupants(el.model.occupants.models);
+    const i18n_participants = visible_occupants.length === 1 ? __('Participant') : __('Participants');
     const i18n_close = __('Hide');
     const i18n_show_filter = __('Show filter');
     const i18n_hide_filter = __('Hide filter');
@@ -93,7 +121,7 @@ export default (el) => {
         <div class="occupants">
             <div class="occupants-header">
                 <div class="occupants-header--title">
-                    <span class="occupants-heading sidebar-heading">${el.model.occupants.length} ${i18n_participants}</span>
+                    <span class="occupants-heading sidebar-heading">${visible_occupants.length} ${i18n_participants}</span>
                     <button
                         type="button"
                         class="rediff-add-participant-button"
@@ -122,7 +150,7 @@ export default (el) => {
                     ></converse-list-filter>`
                     : ''}
                 ${repeat(
-                    el.model.occupants.models,
+                    visible_occupants,
                     (occ) => occ.get('jid'),
                     (occ) => isOccupantFiltered(el, occ) ? '' : html`<converse-muc-occupant-list-item .muc="${el.model}" .model="${occ}" />`
                 )}
