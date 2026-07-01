@@ -40,6 +40,8 @@ services:
       ALLOWED_XMPP_VHOSTS: "v1.chat.rediff.com,v2.chat.rediff.com,v3.chat.rediff.com,v4.chat.rediff.com"
       POSTGRES_HOST: "rediff_postgres"
       POSTGRES_PORT: "5432"
+      EJABBERD_API_BASE_URL: "http://rediff_ejabberd_a:5280/api"
+      EJABBERD_MUC_SYNC_ENABLED: "true"
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -160,6 +162,7 @@ services:
       - ./converse.js/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "127.0.0.1:8081:80"
+      - "127.0.0.1:8082:80"
     depends_on:
       - haproxy
       - rediff_auth_service

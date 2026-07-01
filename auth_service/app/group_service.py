@@ -5,7 +5,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from . import database, keycloak, schemas
+from . import database, ejabberd, keycloak, schemas
 
 
 @dataclass(frozen=True)
@@ -127,6 +127,38 @@ def _ensure_editor(cur, group_id: int, current: CurrentUser) -> dict[str, Any]:
     return member
 
 
+def _reconcile_members_with_muc(group: dict[str, Any], members: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    affiliations = ejabberd.get_room_affiliations(group["muc_jid"])
+    if affiliations is None:
+        return members
+
+    live_jids = {
+        bare_jid(item.get("jid"))
+        for item in affiliations
+        if bare_jid(item.get("jid")) and str(item.get("affiliation") or "").lower() in {"owner", "admin", "member"}
+    }
+    stale_jids = [
+        bare_jid(member["member_jid"])
+        for member in members
+        if bare_jid(member["member_jid"]) != bare_jid(group["owner_jid"]) and bare_jid(member["member_jid"]) not in live_jids
+    ]
+    if stale_jids:
+        with database.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    DELETE FROM rediff_group_members
+                    WHERE group_id = %s AND member_jid = ANY(%s)
+                    """,
+                    (group["id"], stale_jids),
+                )
+    return [
+        member
+        for member in members
+        if bare_jid(member["member_jid"]) == bare_jid(group["owner_jid"]) or bare_jid(member["member_jid"]) in live_jids
+    ]
+
+
 def list_groups(current: CurrentUser) -> list[schemas.GroupResponse]:
     with database.connection() as conn:
         with conn.cursor() as cur:
@@ -223,6 +255,7 @@ def get_group(group_id: int, current: CurrentUser) -> schemas.GroupDetailRespons
                 (group_id, current.tenant_slug),
             )
             members = cur.fetchall()
+    members = _reconcile_members_with_muc(group, members)
     response = schemas.GroupDetailResponse(**_row_to_group(group, member, include_config=True).model_dump())
     response.members = [schemas.GroupMemberResponse(**m) for m in members]
     return response
@@ -295,14 +328,34 @@ def add_member(group_id: int, req: schemas.GroupMemberCreate, current: CurrentUs
 
 def remove_member(group_id: int, member_jid: str, current: CurrentUser) -> dict[str, bool]:
     member_jid = validate_same_tenant_jid(member_jid, current)
-    if member_jid == current.jid:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Owners/admins cannot remove themselves here")
     with database.connection() as conn:
         with conn.cursor() as cur:
             group = _group_row(cur, group_id, current)
-            _ensure_editor(cur, group_id, current)
-            if member_jid == group["owner_jid"]:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group owner cannot be removed")
+            current_member = _member_row(cur, group_id, current.jid)
+            if not current_member:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this group")
+
+            if member_jid == current.jid:
+                if member_jid == group["owner_jid"]:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group owner cannot exit the group")
+            else:
+                if current_member["role"] not in {"owner", "admin"}:
+                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only group owners/admins can remove participants")
+                if member_jid == group["owner_jid"]:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group owner cannot be removed")
+
+            muc_jid = group["muc_jid"]
+
+    try:
+        ejabberd.remove_room_affiliation(muc_jid, member_jid)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to remove participant from live group room",
+        ) from exc
+
+    with database.connection() as conn:
+        with conn.cursor() as cur:
             cur.execute(
                 "DELETE FROM rediff_group_members WHERE group_id = %s AND member_jid = %s",
                 (group_id, member_jid),

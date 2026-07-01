@@ -35,9 +35,12 @@ function isOccupantFiltered (el, occ) {
 
 
 function getRediffOccupantIdentityKey(occ) {
-    const jid = String(occ.get('jid') || '').split('/')[0].trim().toLowerCase();
-    if (jid) return jid.split('@')[0];
-    return String(occ.get('nick') || occ.getDisplayName?.() || occ.id || '').trim().toLowerCase();
+    const current_host = String(window.rediffConverse?.api?.user?.jid?.() || '').split('@')[1]?.split('/')[0]?.toLowerCase() || '';
+    const raw = String(occ.get('jid') || occ.get('nick') || occ.getDisplayName?.() || occ.id || '').split('/')[0].trim().toLowerCase();
+    if (!raw) return '';
+    if (raw.includes('@')) return raw.split('@')[0];
+    if (current_host && raw.endsWith(`@${current_host}`)) return raw.slice(0, -current_host.length - 1);
+    return raw;
 }
 
 function getRediffOccupantRank(occ) {
@@ -151,7 +154,7 @@ export default (el) => {
                     : ''}
                 ${repeat(
                     visible_occupants,
-                    (occ) => occ.get('jid'),
+                    (occ) => getRediffOccupantIdentityKey(occ) || occ.id,
                     (occ) => isOccupantFiltered(el, occ) ? '' : html`<converse-muc-occupant-list-item .muc="${el.model}" .model="${occ}" />`
                 )}
             </ul>

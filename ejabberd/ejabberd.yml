@@ -66,6 +66,14 @@ api_permissions:
       - acl: admin
     what:
       - "*"
+  "rediff auth muc sync":
+    from:
+      - mod_http_api
+    who:
+      ip: 172.16.0.0/12
+    what:
+      - set_room_affiliation
+      - get_room_affiliations
 
 listen:
   - port: 5222
