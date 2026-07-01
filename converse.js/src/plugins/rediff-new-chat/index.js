@@ -63,32 +63,44 @@ const openManagedGroupFromSidebar = async (api, auth, group, ev) => {
     }
 };
 
+const getGroupKey = (group) => String(group?.muc_jid || '').split('/')[0].trim().toLowerCase();
+
+const positionRediffSidebarSections = (pane, dock) => {
+    const rosterSection = pane.querySelector('#converse-roster');
+    const nativeChatrooms = pane.querySelector('#chatrooms');
+    nativeChatrooms?.classList.remove('rediff-native-chatrooms-hidden');
+
+    if (
+        rosterSection &&
+        nativeChatrooms &&
+        rosterSection.compareDocumentPosition(nativeChatrooms) & Node.DOCUMENT_POSITION_PRECEDING
+    ) {
+        pane.insertBefore(rosterSection, nativeChatrooms);
+    }
+
+    if (nativeChatrooms) {
+        nativeChatrooms.append(dock);
+        return;
+    }
+
+    if (rosterSection && dock.previousElementSibling !== rosterSection) {
+        rosterSection.insertAdjacentElement('afterend', dock);
+    }
+};
+
 const renderManagedGroups = (api, auth) => {
     const dock = document.querySelector('.rediff-sidebar-actions');
     if (!dock) return;
 
     let list = dock.querySelector('.rediff-managed-groups-list');
     if (!list) {
-        list = document.createElement('div');
+        list = document.createElement('section');
         list.className = 'rediff-managed-groups-list';
         dock.prepend(list);
     }
 
-    list.innerHTML = managedGroups
-        .map((group, index) => `
-            <button type="button" class="rediff-managed-group-item" data-rediff-managed-group="${index}" title="${escapeHTML(group.name || group.muc_jid)}">
-                <span class="rediff-managed-group-avatar">${escapeHTML(String(group.name || group.muc_jid || 'G').trim().charAt(0).toUpperCase() || 'G')}</span>
-                <span class="rediff-managed-group-copy">
-                    <strong>${escapeHTML(group.name || group.muc_jid)}</strong>
-                    <small>${escapeHTML(group.description || 'Group chat')}</small>
-                </span>
-            </button>
-        `)
-        .join('');
-
-    list.querySelectorAll('[data-rediff-managed-group]').forEach((button) => {
-        button.addEventListener('click', (ev) => openManagedGroupFromSidebar(api, auth, managedGroups[Number(button.dataset.rediffManagedGroup)], ev));
-    });
+    list.hidden = true;
+    list.innerHTML = '';
 };
 
 const syncManagedGroupsToSidebar = async (api, auth) => {
@@ -100,7 +112,13 @@ const syncManagedGroupsToSidebar = async (api, auth) => {
         if (missingToken || !response?.ok) return;
 
         const groups = await response.json();
-        managedGroups = (Array.isArray(groups) ? groups : []).filter((group) => group?.muc_jid);
+        const seenGroups = new Set();
+        managedGroups = (Array.isArray(groups) ? groups : []).filter((group) => {
+            const key = getGroupKey(group);
+            if (!key || seenGroups.has(key)) return false;
+            seenGroups.add(key);
+            return true;
+        });
         ensureSidebarActions(api, auth);
         renderManagedGroups(api, auth);
 
@@ -226,8 +244,8 @@ const ensureSidebarActions = (api, auth) => {
     if (!dock) {
         dock = document.createElement('div');
         dock.className = 'rediff-sidebar-actions';
-        roster.parentNode?.insertBefore(dock, roster);
     }
+    positionRediffSidebarSections(pane, dock);
 
     let chat = dock.querySelector('.rediff-new-chat-button');
     if (!chat) {
@@ -251,6 +269,7 @@ const ensureSidebarActions = (api, auth) => {
 
     chat.classList.add('is-visible');
     groups.classList.add('is-visible');
+    positionRediffSidebarSections(pane, dock);
     renderManagedGroups(api, auth);
     return true;
 };
