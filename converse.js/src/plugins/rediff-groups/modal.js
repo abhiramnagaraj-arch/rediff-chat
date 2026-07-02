@@ -75,6 +75,7 @@ export class RediffGroupsModal extends HTMLElement {
         this.classList.remove('show', 'is-open');
         this.style.display = 'none';
         this.setAttribute('aria-hidden', 'true');
+        this.remove();
     }
 
     refreshManagedSidebar() {

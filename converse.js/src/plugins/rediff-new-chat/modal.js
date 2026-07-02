@@ -43,6 +43,7 @@ export class RediffNewChatModal extends HTMLElement {
         this.classList.remove('show');
         this.style.display = 'none';
         this.setAttribute('aria-hidden', 'true');
+        this.remove();
     }
 
     setStatus(message) {

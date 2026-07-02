@@ -567,6 +567,7 @@ describe('The Contacts Roster', function () {
 
                 const contact_jid = mock.getContactJID(0);
                 const contact = await _converse.api.contacts.get(contact_jid);
+                const original_groups = [...(contact.get('groups') ?? [])];
                 contact.save({ 'num_unread': 5 });
 
                 await u.waitUntil(() => sizzle('.roster-group a.group-toggle', rosterview).length === 8);
@@ -589,8 +590,28 @@ describe('The Contacts Roster', function () {
                 expect(contacts.length).toBe(1);
                 expect(contacts[0].querySelector('.contact-name').textContent).toBe('Mercutio');
                 expect(contacts[0].querySelector('.msgs-indicator').textContent).toBe('5');
+                expect(
+                    sizzle('li converse-roster-contact', rosterview).filter(
+                        (el) => el.querySelector('.contact-name').textContent === 'Mercutio',
+                    ).length,
+                ).toBe(1);
 
-                contact.save({ 'num_unread': 0 });
+                contact.save({ groups: [_converse.labels.HEADER_UNREAD], 'num_unread': 6 });
+                await u.waitUntil(() => {
+                    const unread_contacts = sizzle(
+                        '.roster-group[data-group="New messages"] li converse-roster-contact',
+                        rosterview,
+                    );
+                    return (
+                        unread_contacts.length === 1 &&
+                        unread_contacts[0].querySelector('.msgs-indicator').textContent === '6'
+                    );
+                });
+                expect(
+                    sizzle('.roster-group[data-group="New messages"] li converse-roster-contact', rosterview).length,
+                ).toBe(1);
+
+                contact.save({ groups: original_groups, 'num_unread': 0 });
                 await u.waitUntil(() => sizzle('.roster-group a.group-toggle', rosterview).length === 7);
                 group_titles = sizzle('.roster-group a.group-toggle', rosterview).map((o) => o.textContent.trim());
                 expect(group_titles).toEqual([

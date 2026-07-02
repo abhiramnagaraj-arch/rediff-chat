@@ -1401,6 +1401,364 @@ body.rediff-chat,
     color: var(--rc-away) !important;
 }
 
+/* Unified quick-chat language for the fullscreen workspace. */
+:root,
+body.rediff-chat,
+.conversejs {
+    --rc-red: #c9242f;
+    --rc-red-2: #981b24;
+    --rc-red-soft: #fff1f3;
+    --rc-ink: #18212f;
+    --rc-ink-2: #243246;
+    --rc-panel: rgba(255, 255, 255, 0.94);
+    --rc-panel-2: rgba(248, 250, 253, 0.92);
+    --rc-chat: #f7f9fc;
+    --rc-chat-2: #edf3f8;
+    --rc-line: rgba(24, 33, 47, 0.08);
+    --rc-line-dark: rgba(24, 33, 47, 0.12);
+    --rc-muted: #637287;
+    --rc-soft: #eff4f8;
+    --rc-green: #299b62;
+    --rc-blue: #1667a8;
+    --rc-shadow: 0 24px 60px rgba(24, 33, 47, 0.12);
+    --rc-shadow-soft: 0 12px 28px rgba(24, 33, 47, 0.08);
+}
+
+body.rediff-chat {
+    background:
+        radial-gradient(circle at 0% 0%, rgba(201, 36, 47, 0.09), transparent 24%),
+        radial-gradient(circle at 100% 12%, rgba(22, 103, 168, 0.08), transparent 28%),
+        linear-gradient(180deg, #fdfefe 0%, #f4f7fb 54%, #edf2f8 100%) !important;
+}
+
+body.rediff-chat .rediff-shell {
+    background:
+        radial-gradient(circle at 12% 0%, rgba(201, 36, 47, 0.1), transparent 26%),
+        radial-gradient(circle at 88% 8%, rgba(22, 103, 168, 0.08), transparent 24%),
+        linear-gradient(160deg, rgba(255, 255, 255, 0.75) 0%, rgba(244, 248, 252, 0.92) 48%, rgba(241, 246, 251, 0.98) 100%) !important;
+}
+
+.conversejs #controlbox,
+.conversejs #controlbox .box-flyout,
+.conversejs #controlbox .controlbox-pane {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 253, 0.95) 42%, rgba(242, 246, 251, 0.96) 100%) !important;
+    color: var(--rc-ink) !important;
+    border-right: 1px solid rgba(24, 33, 47, 0.08) !important;
+    box-shadow: 24px 0 50px rgba(24, 33, 47, 0.09) !important;
+}
+
+.conversejs #controlbox .userinfo {
+    padding: 22px 22px 18px !important;
+    background:
+        radial-gradient(circle at top left, rgba(201, 36, 47, 0.08), transparent 34%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 252, 255, 0.96) 100%) !important;
+    border-bottom: 1px solid rgba(24, 33, 47, 0.06) !important;
+}
+
+.conversejs #controlbox .show-profile,
+.conversejs #controlbox .username,
+.conversejs #controlbox .contact-name,
+.conversejs #controlbox .available-room span:last-child,
+.conversejs #controlbox .pending-contact-name,
+.conversejs #controlbox .open-chat,
+.conversejs #controlbox .open-room,
+.conversejs #controlbox .pending-xmpp-contact {
+    color: var(--rc-ink) !important;
+}
+
+.conversejs #controlbox .xmpp-status {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border: 1px solid rgba(24, 33, 47, 0.08) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+}
+
+.conversejs #controlbox .xmpp-status__msg,
+.conversejs #controlbox .change-status,
+.conversejs #controlbox .contact-name--offline,
+.conversejs #controlbox .jid,
+.conversejs #controlbox .room-info,
+.conversejs #controlbox .room-info p {
+    color: var(--rc-muted) !important;
+}
+
+.conversejs #controlbox .controlbox-heading,
+.conversejs #controlbox .controlbox-heading a,
+.conversejs #controlbox .group-toggle,
+.conversejs #controlbox .muc-domain-group-toggle {
+    color: #43536a !important;
+}
+
+.conversejs #controlbox .controlbox-heading__btn,
+.conversejs #controlbox .list-item-action,
+.conversejs #controlbox .contact-actions,
+.conversejs #controlbox converse-dropdown .dropdown-toggle,
+.conversejs #controlbox .toggle-type,
+.conversejs .chatbox-btn {
+    background: rgba(255, 255, 255, 0.68) !important;
+    color: var(--rc-muted) !important;
+    box-shadow: inset 0 0 0 1px rgba(24, 33, 47, 0.05) !important;
+}
+
+.conversejs #controlbox .controlbox-heading__btn:hover,
+.conversejs #controlbox .list-item-action:hover,
+.conversejs #controlbox .contact-actions:hover,
+.conversejs #controlbox converse-dropdown .dropdown-toggle:hover,
+.conversejs #controlbox .toggle-type:hover,
+.conversejs .chatbox-btn:hover {
+    background: var(--rc-red-soft) !important;
+    color: var(--rc-red) !important;
+}
+
+.conversejs #controlbox .list-item:hover {
+    background: rgba(255, 255, 255, 0.76) !important;
+    box-shadow: 0 10px 24px rgba(24, 33, 47, 0.05) !important;
+}
+
+.conversejs #controlbox .list-item.open,
+.conversejs #controlbox .list-item.active,
+.conversejs #controlbox .list-item.selected {
+    background: linear-gradient(135deg, #c9242f, #1667a8 170%) !important;
+    box-shadow: 0 16px 34px rgba(24, 33, 47, 0.14) !important;
+}
+
+.conversejs #controlbox .list-item.open::before,
+.conversejs #controlbox .list-item.active::before,
+.conversejs #controlbox .list-item.selected::before {
+    background: rgba(255, 255, 255, 0.9) !important;
+}
+
+.conversejs .chatbox .box-flyout,
+.conversejs .chatroom .box-flyout,
+.conversejs .chatbox .chat-body,
+.conversejs .chatroom .chat-body,
+.conversejs .chat-content,
+.conversejs .chat-content__messages {
+    background:
+        linear-gradient(90deg, rgba(24, 33, 47, 0.03) 1px, transparent 1px),
+        radial-gradient(circle at 100% 0%, rgba(201, 36, 47, 0.08), transparent 23%),
+        radial-gradient(circle at 0% 100%, rgba(22, 103, 168, 0.07), transparent 26%),
+        linear-gradient(180deg, #fbfdff 0%, #f4f8fc 48%, #eef4f8 100%) !important;
+    background-size: 44px 44px, auto, auto, auto !important;
+}
+
+.conversejs .chatbox .chat-head,
+.conversejs .chatroom .chat-head {
+    background:
+        radial-gradient(circle at top left, rgba(201, 36, 47, 0.08), transparent 34%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 250, 253, 0.96) 58%, rgba(241, 246, 251, 0.96) 100%) !important;
+    color: var(--rc-ink) !important;
+    border-bottom: 1px solid rgba(24, 33, 47, 0.08) !important;
+    box-shadow: 0 10px 28px rgba(24, 33, 47, 0.06) !important;
+}
+
+.conversejs .chatbox .chatbox-title__text,
+.conversejs .chatbox .chatbox-title__text .user,
+.conversejs .chatroom .chatbox-title__text,
+.conversejs .chatroom .chatbox-title__text .user,
+.conversejs .chatbox .show-msg-author-modal,
+.conversejs .chatroom .show-msg-author-modal {
+    color: var(--rc-ink) !important;
+}
+
+.conversejs .chatbox .chat-head__desc,
+.conversejs .chatroom .chat-head__desc {
+    color: var(--rc-muted) !important;
+}
+
+.conversejs .chatbox .chatbox-btn,
+.conversejs .chatroom .chatbox-btn {
+    color: var(--rc-muted) !important;
+}
+
+.conversejs .message.chat-msg .show-msg-author-modal {
+    color: #8090a5 !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__author,
+.conversejs .message.chat-msg .chat-msg__author a {
+    color: var(--rc-blue) !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__time {
+    color: #8a9aae !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__body--wrapper {
+    border: 1px solid rgba(24, 33, 47, 0.06) !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    color: var(--rc-ink) !important;
+    box-shadow: 0 12px 28px rgba(24, 33, 47, 0.08) !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__body--wrapper {
+    border-color: transparent !important;
+    background: linear-gradient(135deg, #c9242f, #1667a8 175%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 14px 30px rgba(24, 33, 47, 0.14) !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__text,
+.conversejs .message.chat-msg .chat-msg__text *,
+.conversejs .message.chat-msg .chat-msg__subject,
+.conversejs .message.chat-msg .chat-msg__body--wrapper p,
+.conversejs .message.chat-msg .chat-msg__body--wrapper span:not(.chat-msg__time) {
+    color: inherit !important;
+}
+
+.conversejs .date-separator,
+.conversejs .chat-date-separator,
+.conversejs .message.date-separator {
+    color: #5f738d !important;
+}
+
+.conversejs .date-separator span,
+.conversejs .chat-date-separator span {
+    background: rgba(255, 255, 255, 0.82) !important;
+    box-shadow:
+        0 8px 18px rgba(24, 33, 47, 0.06),
+        inset 0 0 0 1px rgba(24, 33, 47, 0.05) !important;
+}
+
+.conversejs .date-separator::before,
+.conversejs .date-separator::after,
+.conversejs .chat-date-separator::before,
+.conversejs .chat-date-separator::after {
+    border-color: rgba(24, 33, 47, 0.08) !important;
+}
+
+.conversejs converse-message-form,
+.conversejs converse-muc-message-form,
+.conversejs .chat-message-form {
+    background: rgba(255, 255, 255, 0.82) !important;
+}
+
+.conversejs .chat-message-form {
+    border-top: 1px solid rgba(24, 33, 47, 0.08) !important;
+    box-shadow: 0 -16px 34px rgba(24, 33, 47, 0.06) !important;
+    backdrop-filter: blur(12px);
+}
+
+.conversejs .chat-toolbar {
+    color: var(--rc-muted) !important;
+}
+
+.conversejs .chat-toolbar .btn,
+.conversejs .chat-toolbar .dropdown-toggle,
+.conversejs .chat-toolbar .toggle-emojis,
+.conversejs .chat-toolbar button[type="button"] {
+    background: rgba(255, 255, 255, 0.84) !important;
+    color: var(--rc-muted) !important;
+    box-shadow: inset 0 0 0 1px rgba(24, 33, 47, 0.05) !important;
+}
+
+.conversejs .chat-toolbar .btn:hover,
+.conversejs .chat-toolbar .dropdown-toggle:hover,
+.conversejs .chat-toolbar .toggle-emojis:hover,
+.conversejs .chat-toolbar button[type="button"]:hover {
+    background: var(--rc-red-soft) !important;
+    color: var(--rc-red) !important;
+}
+
+.conversejs .chat-textarea,
+.conversejs textarea.chat-textarea {
+    background: rgba(255, 255, 255, 0.96) !important;
+    color: var(--rc-ink) !important;
+    caret-color: var(--rc-ink) !important;
+    border: 1px solid rgba(24, 33, 47, 0.08) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.82),
+        0 10px 22px rgba(24, 33, 47, 0.04) !important;
+}
+
+.conversejs .chat-textarea::placeholder {
+    color: #8c9aae !important;
+}
+
+.conversejs .chat-textarea:focus,
+.conversejs .chat-textarea.correcting {
+    border-color: rgba(201, 36, 47, 0.28) !important;
+    background: #ffffff !important;
+    box-shadow:
+        0 0 0 4px rgba(201, 36, 47, 0.1),
+        0 12px 24px rgba(24, 33, 47, 0.05) !important;
+}
+
+.conversejs .send-button,
+.conversejs .btn-primary,
+.conversejs button[type="submit"],
+.conversejs input[type="submit"] {
+    background: linear-gradient(135deg, #c9242f, #1667a8 180%) !important;
+    color: #ffffff !important;
+    border: 0 !important;
+    box-shadow: 0 14px 30px rgba(24, 33, 47, 0.14) !important;
+}
+
+.conversejs .send-button:hover,
+.conversejs .btn-primary:hover,
+.conversejs button[type="submit"]:hover,
+.conversejs input[type="submit"]:hover {
+    filter: saturate(1.04);
+    box-shadow: 0 18px 34px rgba(24, 33, 47, 0.16) !important;
+}
+
+.conversejs .send-button:disabled,
+.conversejs .send-button.disabled {
+    background: rgba(99, 114, 135, 0.22) !important;
+    color: rgba(24, 33, 47, 0.42) !important;
+    box-shadow: none !important;
+}
+
+.conversejs .dropdown-menu,
+.conversejs .modal-content {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 253, 0.98) 100%) !important;
+    border: 1px solid rgba(24, 33, 47, 0.08) !important;
+    box-shadow: 0 24px 54px rgba(24, 33, 47, 0.14) !important;
+}
+
+.conversejs .dropdown-item:hover,
+.conversejs .dropdown-item:focus {
+    background: var(--rc-red-soft) !important;
+    color: var(--rc-red) !important;
+}
+
+.conversejs input[type="text"],
+.conversejs input[type="password"],
+.conversejs input[type="email"],
+.conversejs input[type="search"],
+.conversejs select,
+.conversejs textarea:not(.chat-textarea) {
+    border: 1px solid rgba(24, 33, 47, 0.08) !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    color: var(--rc-ink) !important;
+}
+
+.conversejs input:focus,
+.conversejs select:focus,
+.conversejs textarea:not(.chat-textarea):focus {
+    border-color: rgba(201, 36, 47, 0.24) !important;
+    box-shadow: 0 0 0 4px rgba(201, 36, 47, 0.1) !important;
+}
+
+@media screen and (max-width: 900px) {
+    .conversejs #controlbox,
+    .conversejs #controlbox .box-flyout,
+    .conversejs #controlbox .controlbox-pane {
+        box-shadow: 0 -8px 26px rgba(24, 33, 47, 0.08) !important;
+    }
+
+    .conversejs .chatbox .chat-head,
+    .conversejs .chatroom .chat-head {
+        padding: 10px 16px !important;
+    }
+
+    .conversejs .chatbox .chat-content__messages,
+    .conversejs .chatroom .chat-content__messages {
+        padding: 26px 16px 22px !important;
+    }
+}
+
 .conversejs .chat-status--xa,
 .conversejs .chat-status--extended-away,
 .conversejs .chat-status--away-for-long,
@@ -1622,7 +1980,7 @@ body.rediff-chat .rediff-new-chat-close {
     height: 32px;
     border: 0;
     border-radius: 8px;
-    background: transparent;
+    background-color: transparent;
     color: var(--rc-muted);
     font-size: 24px;
     line-height: 1;
@@ -1851,7 +2209,7 @@ body.rediff-chat .rediff-groups-header h2 {
 
 body.rediff-chat .rediff-groups-close {
     border: 0;
-    background: transparent;
+    background-color: transparent;
     color: #5f6368;
     font-size: 26px;
     line-height: 1;
@@ -2158,7 +2516,7 @@ body.rediff-chat .rediff-add-participant-header h2 {
 
 body.rediff-chat .rediff-add-participant-close {
     border: 0;
-    background: transparent;
+    background-color: transparent;
     color: #5f6368;
     font-size: 24px;
     line-height: 1;
@@ -2340,10 +2698,13 @@ body.rediff-chat .rediff-managed-group-copy small {
 }
 
 /* Rediff native group modal refinements */
-body.rediff-chat converse-rediff-groups-modal.rediff-groups-modal {
+body.rediff-chat converse-rediff-groups-modal.rediff-groups-modal,
+body.rediff-chat converse-rediff-new-chat-modal.rediff-new-chat-modal {
     inset: 0 !important;
     padding: 24px !important;
     overflow: hidden !important;
+    position: fixed !important;
+    z-index: 2000 !important;
 }
 
 body.rediff-chat .rediff-groups-dialog {
@@ -2869,4 +3230,508 @@ body.rediff-chat .rediff-groups-row-actions button + button {
     border: 1px solid rgba(255, 255, 255, 0.14) !important;
     background: rgba(255, 255, 255, 0.08) !important;
     color: #ffffff !important;
+}
+
+/* Terminal override: keep the whole product on the quick-chat visual system. */
+body.rediff-chat .conversejs #controlbox .dropdown-menu,
+body.rediff-chat .conversejs converse-controlbox .dropdown-menu,
+body.rediff-chat .conversejs .dropdown-menu,
+body.rediff-chat .conversejs .modal-content,
+body.rediff-chat .rediff-new-chat-dialog .modal-content,
+body.rediff-chat .rediff-groups-dialog .modal-content,
+body.rediff-chat .rediff-groups-dialog,
+body.rediff-chat .rediff-new-chat-dialog {
+    border: 1px solid rgba(24, 33, 47, 0.08) !important;
+    background:
+        radial-gradient(circle at top left, rgba(201, 36, 47, 0.06), transparent 34%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 253, 0.98) 100%) !important;
+    color: #18212f !important;
+    box-shadow: 0 24px 54px rgba(24, 33, 47, 0.14) !important;
+}
+
+body.rediff-chat .conversejs #controlbox .dropdown-item,
+body.rediff-chat .conversejs converse-controlbox .dropdown-item,
+body.rediff-chat .conversejs #controlbox .dropdown-item *,
+body.rediff-chat .conversejs converse-controlbox .dropdown-item *,
+body.rediff-chat .conversejs .dropdown-item,
+body.rediff-chat .conversejs .dropdown-item * {
+    color: #18212f !important;
+    fill: currentColor !important;
+}
+
+body.rediff-chat .conversejs #controlbox .dropdown-item:hover,
+body.rediff-chat .conversejs #controlbox .dropdown-item:focus,
+body.rediff-chat .conversejs converse-controlbox .dropdown-item:hover,
+body.rediff-chat .conversejs converse-controlbox .dropdown-item:focus,
+body.rediff-chat .conversejs .dropdown-item:hover,
+body.rediff-chat .conversejs .dropdown-item:focus,
+body.rediff-chat .rediff-new-chat-result:hover,
+body.rediff-chat .rediff-groups-member-results button:hover {
+    background: #fff1f3 !important;
+    color: #c9242f !important;
+}
+
+body.rediff-chat converse-rediff-new-chat-modal.rediff-new-chat-modal,
+body.rediff-chat converse-rediff-groups-modal.rediff-groups-modal {
+    background: rgba(17, 24, 39, 0.32) !important;
+    backdrop-filter: blur(10px);
+}
+
+body.rediff-chat .rediff-new-chat-header,
+body.rediff-chat .rediff-groups-header,
+body.rediff-chat .rediff-new-chat-dialog .modal-header,
+body.rediff-chat .rediff-groups-dialog .modal-header {
+    border-bottom: 1px solid rgba(24, 33, 47, 0.08) !important;
+    background:
+        radial-gradient(circle at top left, rgba(201, 36, 47, 0.08), transparent 34%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 253, 0.98) 100%) !important;
+    color: #18212f !important;
+}
+
+body.rediff-chat .rediff-new-chat-header h2,
+body.rediff-chat .rediff-groups-header h2,
+body.rediff-chat .rediff-new-chat-header .modal-title,
+body.rediff-chat .rediff-groups-header .modal-title,
+body.rediff-chat .rediff-new-chat-status,
+body.rediff-chat .rediff-groups-status,
+body.rediff-chat .rediff-new-chat-identity strong,
+body.rediff-chat .rediff-groups-copy strong,
+body.rediff-chat .rediff-participant-summary strong {
+    color: #18212f !important;
+}
+
+body.rediff-chat .rediff-new-chat-close,
+body.rediff-chat .rediff-groups-close,
+body.rediff-chat .rediff-new-chat-dialog .btn-close,
+body.rediff-chat .rediff-groups-dialog .btn-close {
+    color: #18212f !important;
+    filter: none !important;
+    opacity: 0.88 !important;
+}
+
+body.rediff-chat .rediff-new-chat-close:hover,
+body.rediff-chat .rediff-groups-close:hover,
+body.rediff-chat .rediff-new-chat-dialog .btn-close:hover,
+body.rediff-chat .rediff-groups-dialog .btn-close:hover {
+    background: #fff1f3 !important;
+}
+
+body.rediff-chat .rediff-new-chat-dialog .modal-body,
+body.rediff-chat .rediff-groups-body,
+body.rediff-chat .rediff-groups-body--participants,
+body.rediff-chat .rediff-groups-form,
+body.rediff-chat .rediff-participants-form,
+body.rediff-chat .rediff-new-chat-identity span,
+body.rediff-chat .rediff-groups-copy span,
+body.rediff-chat .rediff-participant-summary span {
+    color: #637287 !important;
+}
+
+body.rediff-chat .rediff-new-chat-search input,
+body.rediff-chat .rediff-groups-form input,
+body.rediff-chat .rediff-groups-form textarea,
+body.rediff-chat .rediff-groups-member-search input,
+body.rediff-chat .rediff-participants-form input,
+body.rediff-chat .rediff-groups-dialog .form-control,
+body.rediff-chat .rediff-new-chat-dialog .form-control {
+    border: 1px solid rgba(24, 33, 47, 0.08) !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    color: #18212f !important;
+    caret-color: #18212f !important;
+}
+
+body.rediff-chat .rediff-new-chat-search input::placeholder,
+body.rediff-chat .rediff-groups-form input::placeholder,
+body.rediff-chat .rediff-groups-form textarea::placeholder,
+body.rediff-chat .rediff-groups-member-search input::placeholder,
+body.rediff-chat .rediff-participants-form input::placeholder,
+body.rediff-chat .rediff-groups-dialog .form-control::placeholder,
+body.rediff-chat .rediff-new-chat-dialog .form-control::placeholder {
+    color: #8c9aae !important;
+}
+
+body.rediff-chat .rediff-new-chat-result,
+body.rediff-chat .rediff-groups-item,
+body.rediff-chat .rediff-groups-empty,
+body.rediff-chat .rediff-participant-summary,
+body.rediff-chat .rediff-participant-item,
+body.rediff-chat .rediff-groups-member-results {
+    border: 1px solid rgba(24, 33, 47, 0.08) !important;
+    background: rgba(255, 255, 255, 0.88) !important;
+    color: #18212f !important;
+}
+
+body.rediff-chat .rediff-groups-member-results button {
+    color: #18212f !important;
+}
+
+body.rediff-chat .rediff-groups-member-chips li {
+    background: #fff1f3 !important;
+    color: #c9242f !important;
+}
+
+body.rediff-chat .rediff-groups-cancel,
+body.rediff-chat .rediff-exit-group,
+body.rediff-chat .rediff-groups-row-actions button + button {
+    border: 1px solid rgba(24, 33, 47, 0.08) !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    color: #18212f !important;
+}
+
+body.rediff-chat converse-rediff-overlay {
+    position: fixed !important;
+    inset: auto 24px 24px auto !important;
+    width: auto !important;
+    height: auto !important;
+    z-index: 1300 !important;
+    pointer-events: none;
+}
+
+body.rediff-chat converse-rediff-overlay .rediff-overlay {
+    align-items: flex-end !important;
+    pointer-events: none;
+}
+
+body.rediff-chat converse-rediff-overlay .rediff-overlay-launcher,
+body.rediff-chat converse-rediff-overlay .rediff-overlay-restore {
+    pointer-events: auto;
+}
+
+body.rediff-chat converse-rediff-overlay .rediff-overlay-launcher,
+body.rediff-chat converse-rediff-overlay .rediff-overlay-restore {
+    position: fixed !important;
+    right: 24px !important;
+    bottom: 24px !important;
+    left: auto !important;
+    top: auto !important;
+    z-index: 1301 !important;
+}
+
+body.rediff-chat converse-rediff-overlay .rediff-overlay-panel.is-visible {
+    position: fixed !important;
+    right: 24px !important;
+    bottom: 92px !important;
+    left: auto !important;
+    top: auto !important;
+    z-index: 1300 !important;
+}
+
+@media (max-width: 760px) {
+    body.rediff-chat converse-rediff-overlay {
+        inset: auto 12px 12px 12px !important;
+    }
+
+    body.rediff-chat converse-rediff-overlay .rediff-overlay-launcher,
+    body.rediff-chat converse-rediff-overlay .rediff-overlay-restore {
+        right: 12px !important;
+        bottom: 12px !important;
+        left: 12px !important;
+        width: auto !important;
+    }
+
+    body.rediff-chat converse-rediff-overlay .rediff-overlay-panel.is-visible {
+        right: 12px !important;
+        bottom: 76px !important;
+        left: 12px !important;
+        width: auto !important;
+    }
+}
+
+body.rediff-chat,
+body.rediff-chat .conversejs,
+body.rediff-chat .conversejs * {
+    --heading-font: "Manrope", "Aptos", "Segoe UI Variable", "Segoe UI", sans-serif;
+    --normal_font: "Manrope", "Aptos", "Segoe UI Variable", "Segoe UI", sans-serif;
+}
+
+body.rediff-chat .conversejs {
+    color: #18212f !important;
+    font-size: 14px;
+    line-height: 1.48;
+}
+
+body.rediff-chat .conversejs *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+body.rediff-chat .conversejs *::-webkit-scrollbar-track {
+    background: rgba(24, 33, 47, 0.04);
+    border-radius: 999px;
+}
+
+body.rediff-chat .conversejs *::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(99, 114, 135, 0.34), rgba(24, 33, 47, 0.18));
+    background-clip: padding-box;
+}
+
+body.rediff-chat .conversejs .chatbox .chat-head,
+body.rediff-chat .conversejs .chatroom .chat-head {
+    min-height: 72px !important;
+    max-height: 72px !important;
+    padding: 14px 22px !important;
+    border-radius: 0 0 22px 22px;
+}
+
+body.rediff-chat .conversejs .chatbox .chatbox-title__text,
+body.rediff-chat .conversejs .chatbox .chatbox-title__text .user,
+body.rediff-chat .conversejs .chatroom .chatbox-title__text,
+body.rediff-chat .conversejs .chatroom .chatbox-title__text .user {
+    font-family: var(--heading-font) !important;
+    font-size: 1.02rem !important;
+    font-weight: 780 !important;
+    letter-spacing: -0.01em;
+}
+
+body.rediff-chat .conversejs .chatbox .chat-head__desc,
+body.rediff-chat .conversejs .chatroom .chat-head__desc {
+    margin-top: 2px;
+    font-size: 0.78rem !important;
+    line-height: 1.35;
+}
+
+body.rediff-chat .conversejs .chatbox .chatbox-title__buttons,
+body.rediff-chat .conversejs .chatroom .chatbox-title__buttons {
+    gap: 8px !important;
+}
+
+body.rediff-chat .conversejs .chatbox .chatbox-btn,
+body.rediff-chat .conversejs .chatroom .chatbox-btn,
+body.rediff-chat .conversejs .hide-occupants {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 14px !important;
+    background: rgba(255, 255, 255, 0.84) !important;
+    box-shadow: inset 0 0 0 1px rgba(24, 33, 47, 0.05) !important;
+}
+
+body.rediff-chat .conversejs .chatbox .chatbox-btn:hover,
+body.rediff-chat .conversejs .chatroom .chatbox-btn:hover,
+body.rediff-chat .conversejs .hide-occupants:hover {
+    background: #fff1f3 !important;
+}
+
+body.rediff-chat .conversejs .chatbox .chat-content__messages,
+body.rediff-chat .conversejs .chatroom .chat-content__messages {
+    padding: 28px 24px 24px !important;
+}
+
+body.rediff-chat .conversejs .message.chat-msg {
+    gap: 10px !important;
+    margin-top: 14px !important;
+}
+
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__content {
+    max-width: min(62%, 720px) !important;
+    gap: 4px;
+}
+
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__heading {
+    padding: 0 6px !important;
+}
+
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__author,
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__author a {
+    font-size: 0.78rem !important;
+    font-weight: 760 !important;
+}
+
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__time {
+    font-size: 0.7rem !important;
+}
+
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__body--wrapper {
+    min-height: 42px;
+    padding: 11px 14px !important;
+    border-radius: 18px 18px 18px 8px !important;
+}
+
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__content--me .chat-msg__body--wrapper {
+    border-radius: 18px 18px 8px 18px !important;
+}
+
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__text,
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__text *,
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__subject,
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__body--wrapper p,
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__body--wrapper span:not(.chat-msg__time) {
+    font-size: 0.89rem !important;
+    line-height: 1.5 !important;
+    font-weight: 540 !important;
+}
+
+body.rediff-chat .conversejs .chat-message-form {
+    min-height: 88px !important;
+    padding: 14px 18px !important;
+    gap: 12px !important;
+    border-radius: 20px 20px 0 0;
+}
+
+body.rediff-chat .conversejs .chat-toolbar {
+    gap: 8px !important;
+}
+
+body.rediff-chat .conversejs .chat-toolbar .btn,
+body.rediff-chat .conversejs .chat-toolbar .dropdown-toggle,
+body.rediff-chat .conversejs .chat-toolbar .toggle-emojis,
+body.rediff-chat .conversejs .chat-toolbar button[type="button"] {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 14px !important;
+}
+
+body.rediff-chat .conversejs .chat-textarea,
+body.rediff-chat .conversejs textarea.chat-textarea {
+    min-height: 54px !important;
+    max-height: 160px;
+    padding: 15px 18px !important;
+    border-radius: 18px !important;
+    font-size: 0.9rem !important;
+    line-height: 1.45 !important;
+}
+
+body.rediff-chat .conversejs .send-button {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    border-radius: 16px !important;
+}
+
+body.rediff-chat .conversejs .occupants,
+body.rediff-chat .conversejs converse-muc-occupants {
+    background:
+        radial-gradient(circle at top right, rgba(201, 36, 47, 0.08), transparent 28%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(246, 249, 252, 0.96) 100%) !important;
+    color: #18212f !important;
+    border-left: 1px solid rgba(24, 33, 47, 0.08) !important;
+    box-shadow: -14px 0 34px rgba(24, 33, 47, 0.06) !important;
+}
+
+body.rediff-chat .conversejs .occupants-header {
+    padding: 14px 14px 10px !important;
+    border-bottom: 1px solid rgba(24, 33, 47, 0.06) !important;
+    background: rgba(255, 255, 255, 0.82) !important;
+}
+
+body.rediff-chat .conversejs .occupants-heading,
+body.rediff-chat .conversejs .sidebar-heading {
+    color: #18212f !important;
+    font-family: var(--heading-font) !important;
+    font-size: 0.9rem !important;
+    font-weight: 760 !important;
+}
+
+body.rediff-chat .conversejs .occupant {
+    border-radius: 14px !important;
+    margin: 4px 8px !important;
+    padding: 8px 10px !important;
+    background: transparent !important;
+    transition: background-color 0.16s ease, transform 0.16s ease;
+}
+
+body.rediff-chat .conversejs .occupant:hover {
+    background: rgba(24, 33, 47, 0.04) !important;
+    transform: translateY(-1px);
+}
+
+body.rediff-chat .conversejs .occupant-nick,
+body.rediff-chat .conversejs .occupant .name,
+body.rediff-chat .conversejs .occupant .occupant-name {
+    color: #18212f !important;
+    font-size: 0.84rem !important;
+    font-weight: 680 !important;
+}
+
+body.rediff-chat .conversejs .occupant .occupant-status,
+body.rediff-chat .conversejs .occupant .muted,
+body.rediff-chat .conversejs .occupant .subdued {
+    color: #637287 !important;
+}
+
+body.rediff-chat .conversejs .items-filter-form,
+body.rediff-chat .conversejs .items-filter {
+    background: transparent !important;
+}
+
+body.rediff-chat .conversejs .items-filter-form input,
+body.rediff-chat .conversejs .occupants input[type="text"],
+body.rediff-chat .conversejs .occupants input[type="search"] {
+    border: 1px solid rgba(24, 33, 47, 0.08) !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    color: #18212f !important;
+    border-radius: 14px !important;
+}
+
+body.rediff-chat .conversejs .list-item-action .badge,
+body.rediff-chat .conversejs .msgs-indicator.badge,
+body.rediff-chat .conversejs .badge {
+    border-radius: 999px !important;
+    background: linear-gradient(135deg, #c9242f, #1667a8 180%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 20px rgba(24, 33, 47, 0.12) !important;
+}
+
+body.rediff-chat .conversejs .btn-close,
+body.rediff-chat .rediff-new-chat-close,
+body.rediff-chat .rediff-groups-close {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+    background-color: rgba(255, 255, 255, 0.92) !important;
+    box-shadow: inset 0 0 0 1px rgba(24, 33, 47, 0.06) !important;
+}
+
+body.rediff-chat .conversejs .modal-header .btn-close:hover,
+body.rediff-chat .rediff-new-chat-close:hover,
+body.rediff-chat .rediff-groups-close:hover {
+    background-color: #fff1f3 !important;
+}
+
+body.rediff-chat .rediff-new-chat-result,
+body.rediff-chat .rediff-groups-item,
+body.rediff-chat .rediff-participant-summary,
+body.rediff-chat .rediff-participant-item {
+    border-radius: 16px !important;
+    padding: 12px 14px !important;
+    box-shadow: 0 10px 24px rgba(24, 33, 47, 0.05) !important;
+}
+
+body.rediff-chat .rediff-new-chat-result [data-rediff-result],
+body.rediff-chat .rediff-groups-row-actions button,
+body.rediff-chat .rediff-participant-item button,
+body.rediff-chat .rediff-groups-dialog .btn-primary,
+body.rediff-chat .rediff-new-chat-dialog .btn-primary {
+    min-height: 38px !important;
+    padding: 0 14px !important;
+    border-radius: 12px !important;
+    font-weight: 720 !important;
+}
+
+@media screen and (max-width: 900px) {
+    body.rediff-chat .conversejs .chatbox .chat-content__messages,
+    body.rediff-chat .conversejs .chatroom .chat-content__messages {
+        padding: 22px 14px 18px !important;
+    }
+
+    body.rediff-chat .conversejs .message.chat-msg .chat-msg__content {
+        max-width: 84% !important;
+    }
+
+    body.rediff-chat .conversejs .chat-message-form {
+        padding: 12px 12px 14px !important;
+    }
+
+    body.rediff-chat .conversejs .chatbox .chat-head,
+    body.rediff-chat .conversejs .chatroom .chat-head {
+        min-height: 66px !important;
+        max-height: 66px !important;
+        padding: 12px 14px !important;
+        border-radius: 0 0 18px 18px;
+    }
 }

@@ -264,6 +264,12 @@ export function populateContactsMap(contacts_map, contact) {
         contact_groups.push(/** @type {string} */ (labels.HEADER_UNGROUPED));
     }
 
+    if (contact.get('num_unread')) {
+        const name = /** @type {string} */ (labels.HEADER_UNREAD);
+        contacts_map[name] ? contacts_map[name].push(contact) : (contacts_map[name] = [contact]);
+        return contacts_map;
+    }
+
     for (const name of contact_groups) {
         if (contacts_map[name]?.includes(contact)) {
             continue;
@@ -271,10 +277,6 @@ export function populateContactsMap(contacts_map, contact) {
         contacts_map[name] ? contacts_map[name].push(contact) : (contacts_map[name] = [contact]);
     }
 
-    if (contact.get('num_unread')) {
-        const name = /** @type {string} */ (labels.HEADER_UNREAD);
-        contacts_map[name] ? contacts_map[name].push(contact) : (contacts_map[name] = [contact]);
-    }
     return contacts_map;
 }
 

@@ -1,6 +1,7 @@
 import { createRediffAuth, getCurrentJid, installTenantGuards } from '../rediff-shared/index.js';
 import { defineRediffNewChatModal } from './modal.js';
 import { defineRediffGroupsModal } from '../rediff-groups/modal.js';
+import { defineRediffOverlay } from './overlay.js';
 
 const pluginName = 'rediff_new_chat';
 const GROUPS_URL = '/api/groups';
@@ -337,6 +338,16 @@ const installNativeEntryBridge = (api, auth) => {
     }, 0);
 };
 
+const installOverlay = (api, _converse) => {
+    const overlay = defineRediffOverlay(api, _converse, {
+        openGroups: (ev) => openRediffGroups(api, ev),
+        openNewChat: (ev) => openRediffNewChat(api, ev),
+        openParticipants: (mucJid, ev) => openRediffParticipants(api, mucJid, ev),
+    });
+    window.rediffConverse = Object.assign(window.rediffConverse || {}, { overlay });
+    return overlay;
+};
+
 if (!window.rediffNewChatPluginLoaded) {
     window.rediffNewChatPluginLoaded = true;
 
@@ -348,7 +359,7 @@ if (!window.rediffNewChatPluginLoaded) {
                 return;
             }
 
-            window.rediffConverse = Object.assign(window.rediffConverse || {}, { api });
+            window.rediffConverse = Object.assign(window.rediffConverse || {}, { api, _converse: this._converse });
 
             api.settings.extend({
                 rediff_new_chat_search_url: '/api/users/search',
@@ -374,15 +385,19 @@ if (!window.rediffNewChatPluginLoaded) {
             defineRediffNewChatModal(api, auth);
             defineRediffGroupsModal(api, auth);
             installNativeEntryBridge(api, auth);
+            installOverlay(api, this._converse);
             installTenantGuards(api);
             auth.installLoginCapture();
 
             api.listen.on('initialized', () => installTenantGuards(api));
             api.listen.on('connected', () => {
                 installTenantGuards(api);
+                installOverlay(api, this._converse);
                 auth.bootstrapStoredSearchToken();
                 window.setTimeout(() => syncManagedGroupsToSidebar(api, auth), 500);
             });
+            api.listen.on('chatBoxesFetched', () => installOverlay(api, this._converse));
+            api.listen.on('rosterContactsFetched', () => installOverlay(api, this._converse));
 
             auth.bootstrapStoredSearchToken();
             window.setTimeout(() => syncManagedGroupsToSidebar(api, auth), 1500);
