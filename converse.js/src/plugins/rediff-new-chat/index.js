@@ -2,6 +2,7 @@ import { createRediffAuth, getCurrentJid, installTenantGuards } from '../rediff-
 import { defineRediffNewChatModal } from './modal.js';
 import { defineRediffGroupsModal } from '../rediff-groups/modal.js';
 import { defineRediffOverlay } from './overlay.js';
+import { mountRediffWorkspace } from './workspace.js';
 
 const pluginName = 'rediff_new_chat';
 const GROUPS_URL = '/api/groups';
@@ -79,14 +80,12 @@ const positionRediffSidebarSections = (pane, dock) => {
         pane.insertBefore(rosterSection, nativeChatrooms);
     }
 
-    if (nativeChatrooms) {
-        nativeChatrooms.append(dock);
+    if (rosterSection) {
+        pane.insertBefore(dock, rosterSection);
         return;
     }
 
-    if (rosterSection && dock.previousElementSibling !== rosterSection) {
-        rosterSection.insertAdjacentElement('afterend', dock);
-    }
+    pane.prepend(dock);
 };
 
 const renderManagedGroups = (api, auth) => {
@@ -236,6 +235,80 @@ const installMucParticipantActions = (api) => {
     ensureMucParticipantActions(api);
 };
 
+const ensureManagedParticipantsHeading = (api, root = document) => {
+    const elements = root.matches?.('converse-muc-heading')
+        ? [root]
+        : [...root.querySelectorAll('converse-muc-heading')];
+    elements.forEach((el) => {
+        const model = el.model;
+        const mucJid = model?.get?.('jid') || el.getAttribute('jid');
+        if (!mucJid) return;
+
+        const title = el.querySelector('.chatbox-title__text');
+        if (title && !title.dataset.rediffParticipantsBound) {
+            title.dataset.rediffParticipantsBound = 'true';
+            title.classList.add('rediff-participants-trigger');
+            title.setAttribute('role', 'button');
+            title.setAttribute('tabindex', '0');
+            title.setAttribute('title', 'View participants');
+            title.addEventListener('click', (ev) => openRediffParticipants(api, mucJid, ev));
+            title.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault();
+                    openRediffParticipants(api, mucJid, ev);
+                }
+            });
+        }
+
+        const avatarLink = el.querySelector('[data-room-jid]');
+        if (avatarLink && !avatarLink.dataset.rediffParticipantsBound) {
+            avatarLink.dataset.rediffParticipantsBound = 'true';
+            avatarLink.setAttribute('title', 'View participants');
+            avatarLink.addEventListener('click', (ev) => openRediffParticipants(api, mucJid, ev));
+        }
+
+        el.querySelectorAll('.chatbox-title__buttons [title], .chatbox-title__buttons [aria-label]').forEach((button) => {
+            const label = `${button.getAttribute('title') || ''} ${button.getAttribute('aria-label') || ''}`.toLowerCase();
+            if (label.includes('participants') || label.includes('show participants') || label.includes('hide participants')) {
+                button.classList.add('rediff-hidden-participants-toggle');
+            }
+        });
+    });
+};
+
+const hideNativeMucSidebar = (_converse) => {
+    (_converse?.state?.chatboxes?.models || []).forEach((chat) => {
+        if (!chat?.occupants || chat.get('hidden_occupants')) return;
+        chat.save({ hidden_occupants: true });
+    });
+};
+
+const installManagedParticipantsHeading = (api, _converse) => {
+    const headingElement = customElements.get('converse-muc-heading');
+    if (!headingElement?.prototype) {
+        customElements.whenDefined('converse-muc-heading').then(() => installManagedParticipantsHeading(api, _converse));
+        return;
+    }
+    if (!headingElement.prototype.updated?.rediffManagedParticipantsHeading) {
+        const originalUpdated = headingElement.prototype.updated;
+        headingElement.prototype.updated = function rediffManagedParticipantsHeadingUpdated(...args) {
+            originalUpdated?.apply(this, args);
+            this.updateComplete?.then(() => ensureManagedParticipantsHeading(api, this));
+        };
+        headingElement.prototype.updated.rediffManagedParticipantsHeading = true;
+    }
+
+    const chatboxes = _converse?.state?.chatboxes;
+    if (chatboxes && !chatboxes.rediffHideMucSidebarBound) {
+        const handler = () => hideNativeMucSidebar(_converse);
+        chatboxes.on('add reset', handler);
+        chatboxes.rediffHideMucSidebarBound = true;
+    }
+
+    hideNativeMucSidebar(_converse);
+    ensureManagedParticipantsHeading(api);
+};
+
 const ensureSidebarActions = (api, auth) => {
     const pane = document.querySelector('#controlbox .controlbox-pane, converse-controlbox .controlbox-pane, #controlbox, converse-controlbox');
     const roster = document.querySelector('#converse-roster, converse-roster');
@@ -338,14 +411,11 @@ const installNativeEntryBridge = (api, auth) => {
     }, 0);
 };
 
-const installOverlay = (api, _converse) => {
-    const overlay = defineRediffOverlay(api, _converse, {
-        openGroups: (ev) => openRediffGroups(api, ev),
-        openNewChat: (ev) => openRediffNewChat(api, ev),
-        openParticipants: (mucJid, ev) => openRediffParticipants(api, mucJid, ev),
-    });
-    window.rediffConverse = Object.assign(window.rediffConverse || {}, { overlay });
-    return overlay;
+const syncWorkspaceSurface = (api, _converse, actions) => {
+    const overlay = defineRediffOverlay(api, _converse, actions);
+    const workspace = mountRediffWorkspace(api, _converse, actions);
+    window.rediffConverse = Object.assign(window.rediffConverse || {}, { overlay, workspace });
+    return { overlay, workspace };
 };
 
 if (!window.rediffNewChatPluginLoaded) {
@@ -365,9 +435,15 @@ if (!window.rediffNewChatPluginLoaded) {
                 rediff_new_chat_search_url: '/api/users/search',
                 rediff_new_chat_token_url: '/api/oidc/token',
                 rediff_new_chat_token: null,
+                rediff_stable_roster_order: true,
             });
 
             const auth = createRediffAuth(api);
+            const workspaceActions = {
+                openNewChat: (ev) => openRediffNewChat(api, ev),
+                openGroups: (ev) => openRediffGroups(api, ev),
+                openParticipants: (mucJid, ev) => openRediffParticipants(api, mucJid, ev),
+            };
             window.rediffConverse.newChat = {
                 open: (ev) => openRediffNewChat(api, ev),
                 auth,
@@ -384,20 +460,28 @@ if (!window.rediffNewChatPluginLoaded) {
 
             defineRediffNewChatModal(api, auth);
             defineRediffGroupsModal(api, auth);
+            syncWorkspaceSurface(api, this._converse, workspaceActions);
             installNativeEntryBridge(api, auth);
-            installOverlay(api, this._converse);
+            installManagedParticipantsHeading(api, this._converse);
             installTenantGuards(api);
             auth.installLoginCapture();
 
-            api.listen.on('initialized', () => installTenantGuards(api));
+            api.listen.on('initialized', () => {
+                installTenantGuards(api);
+                syncWorkspaceSurface(api, this._converse, workspaceActions);
+                installManagedParticipantsHeading(api, this._converse);
+            });
             api.listen.on('connected', () => {
                 installTenantGuards(api);
-                installOverlay(api, this._converse);
                 auth.bootstrapStoredSearchToken();
+                syncWorkspaceSurface(api, this._converse, workspaceActions);
+                installManagedParticipantsHeading(api, this._converse);
                 window.setTimeout(() => syncManagedGroupsToSidebar(api, auth), 500);
             });
-            api.listen.on('chatBoxesFetched', () => installOverlay(api, this._converse));
-            api.listen.on('rosterContactsFetched', () => installOverlay(api, this._converse));
+            api.listen.on('chatBoxesFetched', () => {
+                syncWorkspaceSurface(api, this._converse, workspaceActions);
+                installManagedParticipantsHeading(api, this._converse);
+            });
 
             auth.bootstrapStoredSearchToken();
             window.setTimeout(() => syncManagedGroupsToSidebar(api, auth), 1500);

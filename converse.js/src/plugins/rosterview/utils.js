@@ -246,6 +246,7 @@ export function shouldShowGroup(group, model) {
  */
 export function populateContactsMap(contacts_map, contact) {
     const { labels } = _converse;
+    const use_stable_rediff_order = api.settings.get('rediff_stable_roster_order');
     const contact_groups = /** @type {string[]} */ (
         u.unique(/** @type {string[]} */ (contact.get('groups') ?? [])).filter((n) => n?.trim())
     );
@@ -264,7 +265,7 @@ export function populateContactsMap(contacts_map, contact) {
         contact_groups.push(/** @type {string} */ (labels.HEADER_UNGROUPED));
     }
 
-    if (contact.get('num_unread')) {
+    if (!use_stable_rediff_order && contact.get('num_unread')) {
         const name = /** @type {string} */ (labels.HEADER_UNREAD);
         contacts_map[name] ? contacts_map[name].push(contact) : (contacts_map[name] = [contact]);
         return contacts_map;
@@ -286,6 +287,11 @@ export function populateContactsMap(contacts_map, contact) {
  * @returns {(-1|0|1)}
  */
 export function contactsComparator(contact1, contact2) {
+    if (api.settings.get('rediff_stable_roster_order')) {
+        const name1 = contact1.getDisplayName().toLowerCase();
+        const name2 = contact2.getDisplayName().toLowerCase();
+        return name1 < name2 ? -1 : name1 > name2 ? 1 : 0;
+    }
     const status1 = /** @type {string} */ (contact1.getStatus());
     const status2 = /** @type {string} */ (contact2.getStatus());
     if (STATUS_WEIGHTS[status1] === STATUS_WEIGHTS[status2]) {

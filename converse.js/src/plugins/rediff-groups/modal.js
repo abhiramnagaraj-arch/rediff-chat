@@ -58,6 +58,7 @@ export class RediffGroupsModal extends HTMLElement {
     show() {
         const container = document.querySelector('#converse-modals') || document.body;
         if (!this.isConnected) container.append(this);
+        document.body.classList.add('rediff-modal-open');
         this.classList.add('show', 'is-open');
         this.style.display = 'block';
         this.setAttribute('aria-hidden', 'false');
@@ -75,6 +76,7 @@ export class RediffGroupsModal extends HTMLElement {
         this.classList.remove('show', 'is-open');
         this.style.display = 'none';
         this.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('rediff-modal-open');
         this.remove();
     }
 

@@ -11,9 +11,9 @@
         <link rel="manifest" href="./manifest.json" />
         <link type="text/css" rel="stylesheet" media="screen" href="./dist/converse.min.css" />
         <link type="text/css" rel="stylesheet" media="screen" href="./rediff-chat.css" />
-        <link type="text/css" rel="stylesheet" media="screen" href="./custom/google-chat.css?v=modern-20260701-4" />
+        <link type="text/css" rel="stylesheet" media="screen" href="./custom/google-chat.css?v=modern-20260702-8" />
         <script type="module" src="./dist/converse.min.js"></script>
-        <script type="module" src="./rediff-new-chat.js?v=native-plugin-20260701-8"></script>
+        <script type="module" src="./rediff-new-chat.js?v=native-plugin-20260702-4"></script>
         <script type="module" src="./rediff-groups.js?v=native-bridge-20260701-5"></script>
     </head>
     <body class="converse-fullscreen rediff-chat">
@@ -44,12 +44,14 @@
             "discover_connection_methods": false,
             "message_archiving": "always",
             "muc_domain": "conference.v1.chat.rediff.com",
+            "muc_grouped_by_domain": false,
             "nickname": "Rediff Chat",
+            "roster_groups": false,
             "show_background": false,
             "view_mode": "fullscreen",
             "whitelisted_plugins": ["rediff_new_chat"]
         }
         </script>
-        <script type="module" src="./rediff-init.js?v=auto-open-20260629-3"></script>
+        <script type="module" src="./rediff-init.js?v=auto-open-20260702-1"></script>
     </body>
 </html>

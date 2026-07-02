@@ -32,6 +32,7 @@ export class RediffNewChatModal extends HTMLElement {
         const container = document.querySelector('#converse-modals') || document.body;
         if (!this.isConnected) container.append(this);
 
+        document.body.classList.add('rediff-modal-open');
         this.classList.add('show');
         this.style.display = 'block';
         this.setAttribute('aria-hidden', 'false');
@@ -43,6 +44,7 @@ export class RediffNewChatModal extends HTMLElement {
         this.classList.remove('show');
         this.style.display = 'none';
         this.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('rediff-modal-open');
         this.remove();
     }
 
