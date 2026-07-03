@@ -13,29 +13,47 @@ const settings = {
 describe('Rediff quick chat overlay', function () {
     beforeEach(function () {
         window.localStorage.removeItem('rediff_overlay_state_v1');
+        window.localStorage.removeItem('rediff_overlay_state_v2');
         document.querySelector('converse-rediff-overlay')?.remove();
     });
 
     it(
-        'opens, minimizes and restores without replacing the fullscreen workspace',
+        'opens multiple chat walls, minimizes them into chips, and restores one without replacing the workspace',
         mock.initConverse(converse, ['chatBoxesFetched'], settings, async function (_converse) {
             await mock.waitForRoster(_converse, 'current', 3);
             await mock.openControlBox(_converse);
 
             const overlay = await u.waitUntil(() => document.querySelector('converse-rediff-overlay'));
-            const launcher = overlay.querySelector('[data-rediff-overlay-toggle]');
-            const panel = overlay.querySelector('.rediff-overlay-panel');
+            const launcher = overlay.querySelector('[data-rediff-overlay-toggle-hub]');
 
-            expect(panel.classList.contains('is-visible')).toBe(false);
+            expect(overlay.querySelector('.rediff-overlay-hub')).toBe(null);
             launcher.click();
-            await u.waitUntil(() => panel.classList.contains('is-visible'));
+            await u.waitUntil(() => overlay.querySelector('.rediff-overlay-hub'));
 
-            overlay.querySelector('[data-rediff-overlay-minimize]').click();
-            await u.waitUntil(() => overlay.querySelector('[data-rediff-overlay-restore]'));
-            expect(panel.classList.contains('is-minimized')).toBe(true);
+            const firstRosterButton = await u.waitUntil(() => overlay.querySelector('[data-rediff-overlay-open-chat]'));
+            firstRosterButton.click();
+            await u.waitUntil(() => overlay.querySelectorAll('.rediff-overlay-window').length === 1);
+            const secondRosterButton = await u.waitUntil(() => overlay.querySelectorAll('[data-rediff-overlay-open-chat]').length >= 2 && overlay.querySelectorAll('[data-rediff-overlay-open-chat]')[1]);
+            secondRosterButton.click();
+            await u.waitUntil(() => overlay.querySelectorAll('.rediff-overlay-window').length === 2);
 
-            overlay.querySelector('[data-rediff-overlay-restore]').click();
-            await u.waitUntil(() => !panel.classList.contains('is-minimized'));
+            const windows = overlay.querySelectorAll('.rediff-overlay-window');
+            expect(windows.length).toBe(2);
+            expect(overlay.querySelectorAll('.rediff-overlay-window__tool').length).toBeGreaterThanOrEqual(4);
+
+            windows[0].querySelector('[data-rediff-overlay-minimize-window]').click();
+            await u.waitUntil(() => overlay.querySelectorAll('.rediff-overlay-window-chip').length === 1);
+            expect(overlay.querySelectorAll('.rediff-overlay-window').length).toBe(1);
+
+            overlay.querySelector('[data-rediff-overlay-emoji-button]').click();
+            await u.waitUntil(() => overlay.querySelector('.rediff-overlay-window__emoji-picker'));
+            overlay.querySelector('[data-rediff-overlay-emoji-option]').click();
+            const composerTextarea = overlay.querySelector('.rediff-overlay-window__composer textarea');
+            expect(composerTextarea.value.length).toBeGreaterThan(0);
+            expect(composerTextarea.value).toMatch(/😀|😁|😂|🤣|😊|😍|😘|😎|🥳|🤔|👍|🙏|🎉|🔥|💡|❤️/);
+
+            overlay.querySelector('[data-rediff-overlay-open-window]').click();
+            await u.waitUntil(() => overlay.querySelectorAll('.rediff-overlay-window').length === 2);
             expect(document.querySelector('#conversejs')).not.toBe(null);
         }),
     );
@@ -48,7 +66,7 @@ describe('Rediff quick chat overlay', function () {
 
             const contact_jid = 'mercutio@montague.lit';
             const overlay = await u.waitUntil(() => document.querySelector('converse-rediff-overlay'));
-            overlay.querySelector('[data-rediff-overlay-toggle]').click();
+            overlay.querySelector('[data-rediff-overlay-toggle-hub]').click();
 
             const rosterButton = await u.waitUntil(() => overlay.querySelector(`[data-jid="${contact_jid}"]`));
             rosterButton.click();
@@ -58,9 +76,9 @@ describe('Rediff quick chat overlay', function () {
             expect(overlay.textContent.includes('Mercutio')).toBe(true);
 
             const spy = vi.spyOn(chatbox, 'sendMessage').mockResolvedValue({});
-            const textarea = overlay.querySelector('.rediff-overlay-composer textarea');
+            const textarea = overlay.querySelector('.rediff-overlay-window__composer textarea');
             textarea.value = 'Quick reply';
-            overlay.querySelector('.rediff-overlay-composer').requestSubmit();
+            overlay.querySelector('.rediff-overlay-window__composer').requestSubmit();
 
             await u.waitUntil(() => spy.mock.calls.length === 1);
             expect(spy).toHaveBeenCalledWith({ body: 'Quick reply' });
