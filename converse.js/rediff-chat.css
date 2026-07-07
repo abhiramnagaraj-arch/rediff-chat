@@ -898,7 +898,7 @@ body.rediff-chat .rediff-native-upload-preview__items {
 }
 
 body.rediff-chat .rediff-native-upload-preview__item,
-.rediff-overlay-window__image-preview-item {
+.rediff-overlay-window__attachment-preview-item {
     position: relative;
     flex: 0 0 auto;
     width: 92px;
@@ -908,16 +908,55 @@ body.rediff-chat .rediff-native-upload-preview__item,
     background: #eef2f7;
 }
 
+body.rediff-chat .rediff-native-upload-preview__item.is-file,
+.rediff-overlay-window__attachment-preview-item.is-file {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    align-items: center;
+    justify-items: center;
+    gap: 6px;
+    padding: 12px 8px 8px;
+    border: 1px solid rgba(24, 33, 47, 0.08);
+    background: #ffffff;
+}
+
 body.rediff-chat .rediff-native-upload-preview__item img,
-.rediff-overlay-window__image-preview-item img {
+.rediff-overlay-window__attachment-preview-item img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
 }
 
+body.rediff-chat .rediff-native-upload-preview__icon,
+.rediff-overlay-window__attachment-preview-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(22, 103, 168, 0.1);
+    color: var(--rediff-blue);
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+body.rediff-chat .rediff-native-upload-preview__name,
+.rediff-overlay-window__attachment-preview-name {
+    width: 100%;
+    overflow: hidden;
+    color: var(--rediff-ink);
+    font-size: 0.72rem;
+    font-weight: 760;
+    line-height: 1.2;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 body.rediff-chat .rediff-native-upload-preview__remove,
-.rediff-overlay-window__image-preview-item button {
+.rediff-overlay-window__attachment-preview-item button {
     position: absolute;
     top: 6px;
     right: 6px;
@@ -935,7 +974,7 @@ body.rediff-chat .rediff-native-upload-preview__remove,
     line-height: 1;
 }
 
-.rediff-overlay-window__image-preview {
+.rediff-overlay-window__attachment-preview {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -945,7 +984,7 @@ body.rediff-chat .rediff-native-upload-preview__remove,
     background: rgba(247, 249, 252, 0.96);
 }
 
-.rediff-overlay-window__image-preview-items {
+.rediff-overlay-window__attachment-preview-items {
     display: flex;
     min-width: 0;
     gap: 8px;
@@ -963,7 +1002,7 @@ body.rediff-chat .rediff-native-upload-preview__remove,
     }
 
     body.rediff-chat .rediff-native-upload-preview__item,
-    .rediff-overlay-window__image-preview-item {
+    .rediff-overlay-window__attachment-preview-item {
         width: 74px;
         height: 74px;
     }
@@ -982,4 +1021,65 @@ body.rediff-chat .rediff-native-upload-preview__remove,
     width: 100%;
     max-height: 180px;
     object-fit: cover;
+}
+
+body.rediff-chat .chat-msg__file-attachment,
+.rediff-overlay-window__message-file {
+    display: inline-grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    max-width: min(100%, 360px);
+    padding: 10px 12px;
+    border: 1px solid rgba(24, 33, 47, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--rediff-ink);
+    text-decoration: none;
+}
+
+body.rediff-chat .chat-msg__file-attachment:hover,
+.rediff-overlay-window__message-file:hover {
+    border-color: rgba(22, 103, 168, 0.24);
+    color: var(--rediff-blue);
+    text-decoration: none;
+}
+
+body.rediff-chat .chat-msg__file-attachment-icon,
+.rediff-overlay-window__message-file-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(22, 103, 168, 0.1);
+    color: var(--rediff-blue);
+    font-size: 1.1rem;
+    font-weight: 800;
+}
+
+body.rediff-chat .chat-msg__file-attachment-copy,
+.rediff-overlay-window__message-file-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+}
+
+body.rediff-chat .chat-msg__file-attachment-name,
+.rediff-overlay-window__message-file-name {
+    overflow: hidden;
+    color: inherit;
+    font-size: 0.86rem;
+    font-weight: 760;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.rediff-chat .chat-msg__file-attachment-meta,
+.rediff-overlay-window__message-file-meta {
+    color: var(--rediff-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
 }

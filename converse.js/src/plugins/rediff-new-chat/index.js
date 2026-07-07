@@ -12,6 +12,8 @@ const escapeHTML = (value) =>
     String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
 const IMAGE_URL_PATTERN = /\.(?:png|jpe?g|gif|webp|bmp|svg)(?:[?#].*)?$/i;
+const IMAGE_FILE_PATTERN = /\.(?:png|jpe?g|gif|webp|bmp|svg)$/i;
+const URL_PATTERN = /^https?:\/\//i;
 
 const isImageURL = (value) => {
     if (!value) return false;
@@ -23,6 +25,34 @@ const isImageURL = (value) => {
 };
 
 const getMessageImageURL = (message) => message?.get?.('oob_url') || message?.get?.('body') || message?.get?.('message') || '';
+
+const isImageFile = (file) => file?.type?.startsWith('image/') || IMAGE_FILE_PATTERN.test(file?.name || '');
+
+const isLikelyUploadedFileURL = (value) => {
+    if (!URL_PATTERN.test(value || '')) return false;
+    try {
+        const url = new URL(value, window.location.href);
+        return url.pathname.includes('/upload/') || /\.[a-z0-9]{1,12}$/i.test(url.pathname);
+    } catch (error) {
+        return /\/[uU]pload\//.test(String(value)) || /\.[a-z0-9]{1,12}(?:[?#].*)?$/i.test(String(value));
+    }
+};
+
+const getFileNameFromURL = (value) => {
+    try {
+        const url = new URL(value, window.location.href);
+        return decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() || 'Shared file');
+    } catch (error) {
+        return String(value || '').split('/').pop() || 'Shared file';
+    }
+};
+
+const getFileAttachmentURL = (model, text) => {
+    const url = model?.get?.('oob_url') || String(text || '').trim();
+    if (!url || isImageURL(url) || !URL_PATTERN.test(url)) return '';
+    if (model?.get?.('rediff_file_attachment') || model?.get?.('file') || model?.get?.('upload')) return url;
+    return isLikelyUploadedFileURL(url) ? url : '';
+};
 
 const getConfiguredUploadBaseURL = (api) => {
     const configured = api.settings.get('rediff_upload_base_url');
@@ -85,21 +115,71 @@ const showExistingImageMessagesInline = (_converse) => {
     });
 };
 
+const installFileAttachmentRendering = () => {
+    const MessageBodyElement = customElements.get('converse-chat-message-body');
+    if (!MessageBodyElement?.prototype) {
+        customElements.whenDefined('converse-chat-message-body').then(() => installFileAttachmentRendering());
+        return;
+    }
+
+    const proto = MessageBodyElement.prototype;
+    if (proto.render?.rediffFileAttachmentRendering) return;
+
+    const originalRender = proto.render;
+    proto.render = function rediffRenderMessageBody(...args) {
+        const fileURL = getFileAttachmentURL(this.model, this.text);
+        if (fileURL) {
+            const html = window.converse?.env?.html;
+            if (!html) return originalRender.apply(this, args);
+            return html`<a class="chat-msg__file-attachment" href="${fileURL}" target="_blank" rel="noopener" download>
+                <span class="chat-msg__file-attachment-icon" aria-hidden="true">↧</span>
+                <span class="chat-msg__file-attachment-copy">
+                    <span class="chat-msg__file-attachment-name">${getFileNameFromURL(fileURL)}</span>
+                    <span class="chat-msg__file-attachment-meta">Open file</span>
+                </span>
+            </a>`;
+        }
+        return originalRender.apply(this, args);
+    };
+    proto.render.rediffFileAttachmentRendering = true;
+
+    document.querySelectorAll('converse-chat-message-body').forEach((el) => el.requestUpdate?.());
+};
+
+const markFileAttachmentMessage = (message) => {
+    const url = message?.get?.('oob_url') || message?.get?.('body') || message?.get?.('message') || '';
+    if (url && !isImageURL(url) && URL_PATTERN.test(url) && isLikelyUploadedFileURL(url) && message.get('rediff_file_attachment') !== true) {
+        message.save({ rediff_file_attachment: true, hide_url_previews: true });
+    }
+};
+
+const showExistingFileAttachments = (_converse) => {
+    (_converse?.state?.chatboxes?.models || []).forEach((chatbox) => {
+        (chatbox.messages?.models || []).forEach(markFileAttachmentMessage);
+    });
+};
+
 const installImageMessageRendering = (api, _converse) => {
+    installFileAttachmentRendering();
+
     if (!api.rediffImageRenderingInstalled) {
         api.rediffImageRenderingInstalled = true;
 
         api.listen.on('afterFileUploaded', (message, attrs) => {
-            const imageURL = attrs?.oob_url || attrs?.body || attrs?.message;
-            return isImageURL(imageURL) ? { ...attrs, hide_url_previews: false } : attrs;
+            const uploadURL = attrs?.oob_url || attrs?.body || attrs?.message;
+            return isImageURL(uploadURL)
+                ? { ...attrs, hide_url_previews: false }
+                : { ...attrs, rediff_file_attachment: true, hide_url_previews: true };
         });
 
         api.listen.on('afterMessageCreated', (_chatbox, message) => {
             markImageMessageInline(message);
+            markFileAttachmentMessage(message);
         });
     }
 
     showExistingImageMessagesInline(_converse);
+    showExistingFileAttachments(_converse);
 };
 
 const revokePendingUploadURLs = (toolbar) => {
@@ -125,12 +205,20 @@ const renderNativeUploadPreview = (toolbar) => {
         <div class="rediff-native-upload-preview__items">
             ${pending
                 .map(
-                    (entry, index) => `
-                        <div class="rediff-native-upload-preview__item">
-                            <img src="${escapeHTML(entry.preview_url)}" alt="${escapeHTML(entry.file.name || 'Selected image')}" />
-                            <button type="button" class="rediff-native-upload-preview__remove" data-rediff-native-upload-remove="${index}" aria-label="Remove image">×</button>
-                        </div>
-                    `,
+                    (entry, index) => entry.is_image
+                        ? `
+                            <div class="rediff-native-upload-preview__item is-image">
+                                <img src="${escapeHTML(entry.preview_url)}" alt="${escapeHTML(entry.file.name || 'Selected image')}" />
+                                <button type="button" class="rediff-native-upload-preview__remove" data-rediff-native-upload-remove="${index}" aria-label="Remove file">×</button>
+                            </div>
+                        `
+                        : `
+                            <div class="rediff-native-upload-preview__item is-file">
+                                <span class="rediff-native-upload-preview__icon" aria-hidden="true">↧</span>
+                                <span class="rediff-native-upload-preview__name">${escapeHTML(entry.file.name || 'Selected file')}</span>
+                                <button type="button" class="rediff-native-upload-preview__remove" data-rediff-native-upload-remove="${index}" aria-label="Remove file">×</button>
+                            </div>
+                        `,
                 )
                 .join('')}
         </div>
@@ -165,9 +253,10 @@ const installNativeImageUploadPreview = () => {
         revokePendingUploadURLs(this);
         this.rediff_pending_images = files.map((file) => ({
             file,
-            preview_url: URL.createObjectURL(file),
+            is_image: isImageFile(file),
+            preview_url: isImageFile(file) ? URL.createObjectURL(file) : '',
         }));
-        this.querySelector('.fileupload')?.setAttribute('accept', 'image/*');
+        this.querySelector('.fileupload')?.removeAttribute('accept');
         this.requestUpdate?.();
         window.requestAnimationFrame(() => renderNativeUploadPreview(this));
     };
@@ -213,9 +302,8 @@ const installNativeImageUploadPreview = () => {
     proto.onFileSelection = function rediffOnFileSelection(ev) {
         const input = /** @type {HTMLInputElement} */ (ev.target);
         const files = Array.from(input.files || []);
-        const images = files.filter((file) => file.type?.startsWith('image/'));
-        if (images.length) {
-            this.setRediffPendingImages(images);
+        if (files.length) {
+            this.setRediffPendingImages(files);
             return;
         }
         originalOnFileSelection?.call(this, ev);
@@ -224,7 +312,7 @@ const installNativeImageUploadPreview = () => {
 
     proto.updated = function rediffToolbarUpdated(...args) {
         originalUpdated?.apply(this, args);
-        this.querySelector('.fileupload')?.setAttribute('accept', 'image/*');
+        this.querySelector('.fileupload')?.removeAttribute('accept');
         this.bindRediffNativeSendButton();
         renderNativeUploadPreview(this);
     };

@@ -15,6 +15,44 @@ function tplEditedIcon(el) {
     ></converse-icon>`;
 }
 
+const IMAGE_URL_PATTERN = /\.(?:png|jpe?g|gif|webp|bmp|svg)(?:[?#].*)?$/i;
+const URL_PATTERN = /^https?:\/\//i;
+
+const isImageURL = (value) => {
+    if (!value) return false;
+    try {
+        return IMAGE_URL_PATTERN.test(new URL(value, window.location.href).pathname);
+    } catch (error) {
+        return IMAGE_URL_PATTERN.test(String(value));
+    }
+};
+
+const getFileNameFromURL = (value) => {
+    try {
+        const url = new URL(value, window.location.href);
+        return decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() || 'Shared file');
+    } catch (error) {
+        return String(value || '').split('/').pop() || 'Shared file';
+    }
+};
+
+const isLikelyUploadedFileURL = (value) => {
+    if (!URL_PATTERN.test(value || '')) return false;
+    try {
+        const url = new URL(value, window.location.href);
+        return url.pathname.includes('/upload/') || /\.[a-z0-9]{1,12}$/i.test(url.pathname);
+    } catch (error) {
+        return /\/[uU]pload\//.test(String(value)) || /\.[a-z0-9]{1,12}(?:[?#].*)?$/i.test(String(value));
+    }
+};
+
+const getFileAttachmentURL = (model, text) => {
+    const url = model.get('oob_url') || text;
+    if (!url || isImageURL(url) || !URL_PATTERN.test(url)) return '';
+    if (model.get('rediff_file_attachment') || model.get('file') || model.get('upload') || model.get('oob_url')) return url;
+    return isLikelyUploadedFileURL(url) ? url : '';
+};
+
 function tplCheckmark() {
     return html`<converse-icon
         size="0.75em"
@@ -51,6 +89,7 @@ export default (el) => {
         ? `spoiler ${el.model.get('is_spoiler_visible') ? '' : 'hidden'}`
         : '';
     const text = el.model.getMessageText();
+    const file_attachment_url = getFileAttachmentURL(el.model, text);
     const show_oob = el.model.get('oob_url') && text !== el.model.get('oob_url');
     const render_media = api.settings.get('render_media');
 
@@ -58,15 +97,23 @@ export default (el) => {
         ${el.model.get('is_spoiler') ? tplSpoilerHint : ''}
         ${el.model.get('subject') ? html`<div class="chat-msg__subject">${el.model.get('subject')}</div>` : ''}
         <span class="chat-msg__body--wrapper ${error_text ? 'error' : ''}">
-            <converse-chat-message-body
-                class="chat-msg__text ${el.model.get('is_only_emojis')
-                    ? 'chat-msg__text--larger'
-                    : ''} ${spoiler_classes}"
-                .model="${el.model}"
-                hide_url_previews=${el.model.get('hide_url_previews')}
-                ?is_me_message=${el.model.isMeCommand()}
-                text="${text}"
-            ></converse-chat-message-body>
+            ${file_attachment_url
+                ? html`<a class="chat-msg__file-attachment" href="${file_attachment_url}" target="_blank" rel="noopener" download>
+                      <span class="chat-msg__file-attachment-icon" aria-hidden="true">↧</span>
+                      <span class="chat-msg__file-attachment-copy">
+                          <span class="chat-msg__file-attachment-name">${getFileNameFromURL(file_attachment_url)}</span>
+                          <span class="chat-msg__file-attachment-meta">Open file</span>
+                      </span>
+                  </a>`
+                : html`<converse-chat-message-body
+                      class="chat-msg__text ${el.model.get('is_only_emojis')
+                          ? 'chat-msg__text--larger'
+                          : ''} ${spoiler_classes}"
+                      .model="${el.model}"
+                      hide_url_previews=${el.model.get('hide_url_previews')}
+                      ?is_me_message=${el.model.isMeCommand()}
+                      text="${text}"
+                  ></converse-chat-message-body>`}
             ${el.model.get('received') && !el.model.isMeCommand() && !is_groupchat_message ? tplCheckmark() : ''}
             ${el.model.get('edited') ? tplEditedIcon(el) : ''}
         </span>
