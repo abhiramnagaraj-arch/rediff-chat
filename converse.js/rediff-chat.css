@@ -935,25 +935,13 @@ body.rediff-chat .rediff-native-upload-preview__remove,
     line-height: 1;
 }
 
-.rediff-overlay-window__image-preview-send {
-    flex: 0 0 auto;
-    min-height: 40px;
-    padding: 0 18px;
-    border: 0;
-    border-radius: 8px;
-    background: var(--rediff-accent);
-    color: #ffffff;
-    cursor: pointer;
-    font-weight: 760;
-}
-
 .rediff-overlay-window__image-preview {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 10px;
     padding: 10px;
-    border-top: 1px solid rgba(24, 33, 47, 0.08);
+    border: 1px solid rgba(24, 33, 47, 0.08);
+    border-radius: 14px;
     background: rgba(247, 249, 252, 0.96);
 }
 

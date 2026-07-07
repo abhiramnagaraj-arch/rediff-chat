@@ -31,7 +31,11 @@ def _timestamp_to_datetime(value: Any) -> datetime:
     if value is None:
         return datetime.fromtimestamp(0, tz=timezone.utc)
 
-    raw = int(value)
+    try:
+        raw = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return datetime.fromtimestamp(0, tz=timezone.utc)
+
     if raw > 10**14:
         seconds = raw / 1_000_000
     elif raw > 10**11:
@@ -39,7 +43,17 @@ def _timestamp_to_datetime(value: Any) -> datetime:
     else:
         seconds = raw
 
-    return datetime.fromtimestamp(seconds, tz=timezone.utc)
+    try:
+        return datetime.fromtimestamp(seconds, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError):
+        return datetime.fromtimestamp(0, tz=timezone.utc)
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
 
 
 def _conversation_name(row: dict[str, Any]) -> str:
@@ -64,22 +78,34 @@ def _conversation_name_from_jid(conversation_jid: str) -> str:
 
 
 def _load_group_index(*, tenant_slug: str, vhost: str, current_jid: str) -> dict[str, str]:
-    with database.connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT g.muc_jid, g.name
-                FROM rediff_groups g
-                JOIN rediff_group_members m ON m.group_id = g.id
-                WHERE g.tenant_slug = %s
-                  AND g.vhost = %s
-                  AND g.status = 'active'
-                  AND m.member_jid = %s
-                """,
-                (tenant_slug, vhost, current_jid),
-            )
-            rows = cur.fetchall()
-    return {bare_jid(str(row["muc_jid"])): str(row["name"] or "").strip() for row in rows if row.get("muc_jid")}
+    try:
+        with database.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT g.muc_jid, g.name
+                    FROM rediff_groups g
+                    JOIN rediff_group_members m ON m.group_id = g.id
+                    WHERE g.tenant_slug = %s
+                      AND g.vhost = %s
+                      AND g.status = 'active'
+                      AND m.member_jid = %s
+                    """,
+                    (tenant_slug, vhost, current_jid),
+                )
+                rows = cur.fetchall()
+    except Exception:
+        return {}
+
+    result: dict[str, str] = {}
+    for row in rows:
+        try:
+            muc_jid = bare_jid(str(row["muc_jid"]))
+        except Exception:
+            continue
+        if muc_jid:
+            result[muc_jid] = str(row.get("name") or "").strip()
+    return result
 
 
 def _room_matches_query(room_name: str, room_jid: str, terms: list[str]) -> bool:
@@ -92,8 +118,17 @@ def _build_peer_clause(target_jids: list[str]) -> tuple[str, list[str]]:
         return "", []
 
     placeholders = ", ".join(["%s"] * len(target_jids))
-    clause = f"  AND (lower(a.bare_peer) IN ({placeholders}) OR lower(a.peer) IN ({placeholders}))"
+    clause = f"lower(a.bare_peer) IN ({placeholders}) OR lower(a.peer) IN ({placeholders})"
     return clause, [*target_jids, *target_jids]
+
+
+def _build_owner_clause(owner_jids: list[str]) -> tuple[str, list[str]]:
+    if not owner_jids:
+        return "", []
+
+    placeholders = ", ".join(["%s"] * len(owner_jids))
+    clause = f"  AND lower(a.username) IN ({placeholders})"
+    return clause, owner_jids
 
 
 def _row_to_result(row: dict[str, Any]) -> schemas.MessageSearchResult:
@@ -104,7 +139,7 @@ def _row_to_result(row: dict[str, Any]) -> schemas.MessageSearchResult:
         type=_conversation_type(row),
         snippet=_normalize_snippet(str(row.get("txt") or row.get("xml") or "")),
         timestamp=timestamp,
-        archive_id=int(row.get("archive_id") or row.get("id") or 0),
+        archive_id=_safe_int(row.get("archive_id") or row.get("id") or 0),
         origin_id=row.get("origin_id"),
         peer=str(row.get("peer") or ""),
         bare_peer=str(row.get("bare_peer") or ""),
@@ -149,8 +184,8 @@ def search_messages(
                     matched_room_terms.add(term)
                     target_jids.append(room_jid)
     target_jids = list(dict.fromkeys(jid for jid in target_jids if jid))
+    archive_owner_jids = list(dict.fromkeys([*username_aliases, *group_index.keys()]))
 
-    username_clauses = " OR ".join(["lower(a.username) = %s" for _ in username_aliases])
     sql = [
         """
         SELECT
@@ -164,19 +199,15 @@ def search_messages(
             a.kind,
             a.origin_id
         FROM archive a
-        WHERE (
-        """
-        + username_clauses
-        + """
-        )
+        WHERE 1 = 1
         """,
     ]
-    params: list[Any] = [*username_aliases]
+    params: list[Any] = []
 
-    peer_clause, peer_params = _build_peer_clause(target_jids)
-    if peer_clause:
-        sql.append(peer_clause)
-        params.extend(peer_params)
+    owner_clause, owner_params = _build_owner_clause(archive_owner_jids)
+    if owner_clause:
+        sql.append(owner_clause)
+        params.extend(owner_params)
 
     if start is not None:
         sql.append("  AND a.timestamp >= %s")
@@ -186,28 +217,13 @@ def search_messages(
         sql.append("  AND a.timestamp <= %s")
         params.append(_to_epoch_ms(end))
 
-    body_terms = [] if terms and matched_room_terms == set(terms) and target_jids else terms
-    for term in body_terms:
-        like = f"%{term}%"
-        sql.append(
-            """
-          AND (
-              lower(coalesce(a.txt, '')) LIKE %s
-              OR lower(coalesce(a.xml, '')) LIKE %s
-              OR lower(coalesce(a.peer, '')) LIKE %s
-              OR lower(coalesce(a.bare_peer, '')) LIKE %s
-          )
-            """
-        )
-        params.extend([like, like, like, like])
-
     sql.append(
         """
         ORDER BY a.timestamp DESC, a.id DESC
         LIMIT %s
         """
     )
-    params.append(max(1, min(limit, 50)))
+    params.append(max(1, min(limit * 20, 500)))
 
     database_name = database.archive_database_name_for_vhost(vhost)
     rows: list[dict[str, Any]]
@@ -218,16 +234,33 @@ def search_messages(
 
     enriched_rows: list[dict[str, Any]] = []
     for row in rows:
-        peer = bare_jid(str(row.get("bare_peer") or row.get("peer") or ""))
-        conversation_jid = peer
-        conversation_name = group_index.get(peer)
-        conversation_type = "groupchat" if conversation_name else "chat"
-        if not conversation_name:
-            conversation_name = _conversation_name_from_jid(conversation_jid)
-        enriched_row = dict(row)
-        enriched_row["conversation_jid"] = conversation_jid
-        enriched_row["conversation_name"] = conversation_name
-        enriched_row["conversation_type"] = conversation_type
+        try:
+            owner = bare_jid(str(row.get("username") or ""))
+            peer = bare_jid(str(row.get("bare_peer") or row.get("peer") or ""))
+            conversation_jid = peer or owner
+            conversation_name = group_index.get(conversation_jid) or group_index.get(owner)
+            if owner in group_index:
+                conversation_jid = owner
+                conversation_name = group_index[owner]
+            conversation_type = "groupchat" if conversation_name else "chat"
+            if not conversation_name:
+                conversation_name = _conversation_name_from_jid(conversation_jid)
+            haystack = " ".join(
+                str(value or "") for value in [row.get("txt"), row.get("xml"), row.get("peer"), row.get("bare_peer"), row.get("username")]
+            ).lower()
+            if target_jids and owner not in target_jids and peer not in target_jids:
+                continue
+            if terms:
+                term_hits = all(term in haystack for term in terms)
+                room_term_hits = bool(target_jids) and (owner in target_jids or peer in target_jids)
+                if not (term_hits or room_term_hits):
+                    continue
+            enriched_row = dict(row)
+            enriched_row["conversation_jid"] = conversation_jid
+            enriched_row["conversation_name"] = conversation_name
+            enriched_row["conversation_type"] = conversation_type
+        except Exception:
+            continue
         enriched_rows.append(enriched_row)
 
     return [_row_to_result(row) for row in enriched_rows]
