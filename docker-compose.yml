@@ -90,6 +90,7 @@ services:
       - ./ejabberd/ejabberd.yml:/home/ejabberd/conf/ejabberd.yml:ro
       - ./certs/server.pem:/home/ejabberd/conf/server.pem:ro
       - ejabberd_data_a:/home/ejabberd/database
+      - ejabberd_upload:/home/ejabberd/upload
     depends_on:
       rediff_auth_service:
         condition: service_healthy
@@ -111,6 +112,7 @@ services:
       - ./ejabberd/ejabberd.yml:/home/ejabberd/conf/ejabberd.yml:ro
       - ./certs/server.pem:/home/ejabberd/conf/server.pem:ro
       - ejabberd_data_b:/home/ejabberd/database
+      - ejabberd_upload:/home/ejabberd/upload
     depends_on:
       - rediff_ejabberd_a
     networks:
@@ -131,6 +133,7 @@ services:
       - ./ejabberd/ejabberd.yml:/home/ejabberd/conf/ejabberd.yml:ro
       - ./certs/server.pem:/home/ejabberd/conf/server.pem:ro
       - ejabberd_data_c:/home/ejabberd/database
+      - ejabberd_upload:/home/ejabberd/upload
     depends_on:
       - rediff_ejabberd_a
     networks:
@@ -174,6 +177,7 @@ volumes:
   ejabberd_data_a:
   ejabberd_data_b:
   ejabberd_data_c:
+  ejabberd_upload:
   keycloak_data:
 
 networks:

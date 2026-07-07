@@ -2,6 +2,8 @@ import { getCurrentJid } from '../rediff-shared/index.js';
 
 const MAX_RECENTS = 18;
 const MAX_RESULTS = 8;
+const MAX_MESSAGE_RESULTS = 12;
+const SEARCH_DEBOUNCE_MS = 260;
 
 const escapeHTML = (value) =>
     String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -21,6 +23,24 @@ const getTimestamp = (message) => {
 const formatTime = (timestamp) => {
     if (!timestamp) return '';
     return new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' }).format(new Date(timestamp));
+};
+
+const formatDateTime = (timestamp) => {
+    if (!timestamp) return '';
+    return new Intl.DateTimeFormat([], {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    }).format(new Date(timestamp));
+};
+
+const debounce = (callback, delay) => {
+    let timeout;
+    return (...args) => {
+        window.clearTimeout(timeout);
+        timeout = window.setTimeout(() => callback(...args), delay);
+    };
 };
 
 const getPresenceLabel = (contact) => {
@@ -50,14 +70,20 @@ export class RediffWorkspace extends HTMLElement {
         super();
         this.api = null;
         this._converse = null;
+        this.auth = null;
         this.actions = {};
         this.state = {
             query: '',
             active_jid: '',
+            search_results: [],
+            search_loading: false,
+            search_error: '',
         };
         this.collectionListeners = [];
         this.messageListeners = new Map();
         this.renderQueued = false;
+        this.searchRequestId = 0;
+        this.searchDebounce = debounce(() => this.searchMessages(), SEARCH_DEBOUNCE_MS);
         this.onClick = (ev) => this.handleClick(ev);
         this.onInput = (ev) => this.handleInput(ev);
         this.onKeyDown = (ev) => this.handleKeyDown(ev);
@@ -83,9 +109,10 @@ export class RediffWorkspace extends HTMLElement {
         document.body.classList.remove('rediff-workspace-mounted');
     }
 
-    setContext(api, _converse, actions = {}) {
+    setContext(api, _converse, actions = {}, auth = null) {
         this.api = api;
         this._converse = _converse;
+        this.auth = auth;
         this.actions = actions;
         this.bindCollections();
         this.ensureActiveChat();
@@ -215,6 +242,95 @@ export class RediffWorkspace extends HTMLElement {
         return results;
     }
 
+    getMessageSearchResults() {
+        return Array.isArray(this.state.search_results) ? this.state.search_results : [];
+    }
+
+    getSearchSummary() {
+        const query = this.state.query.trim();
+        if (!query) return `${this.getRecentChatboxes().length} conversations`;
+        if (this.state.search_loading) return 'Searching messages...';
+        if (this.state.search_error) return this.state.search_error;
+        const messageCount = this.getMessageSearchResults().length;
+        const quickCount = this.getSearchResults().length;
+        if (query.length < 2) {
+            return `${quickCount} quick result${quickCount === 1 ? '' : 's'}; type 2+ characters to search the archive.`;
+        }
+        return `${messageCount} message${messageCount === 1 ? '' : 's'} and ${quickCount} quick result${quickCount === 1 ? '' : 's'}`;
+    }
+
+    getAuth() {
+        return this.auth || window.rediffConverse?.newChat?.auth || null;
+    }
+
+    async searchMessages() {
+        const query = this.state.query.trim();
+        const requestId = ++this.searchRequestId;
+
+        if (query.length < 2) {
+            this.state.search_results = [];
+            this.state.search_loading = false;
+            this.state.search_error = '';
+            this.queueRender();
+            return;
+        }
+
+        const auth = this.getAuth();
+        if (!auth?.authenticatedFetch) {
+            this.state.search_results = [];
+            this.state.search_loading = false;
+            this.state.search_error = 'Search is unavailable right now.';
+            this.queueRender();
+            return;
+        }
+
+        this.state.search_loading = true;
+        this.state.search_error = '';
+        this.queueRender();
+
+        try {
+            const url = new URL(this.api.settings.get('rediff_message_search_url') || '/api/messages/search', window.location.origin);
+            url.searchParams.set('q', query);
+            url.searchParams.set('limit', String(MAX_MESSAGE_RESULTS));
+
+            const { response, missingToken } = await auth.authenticatedFetch(url.toString());
+            if (requestId !== this.searchRequestId) return;
+
+            if (missingToken || response?.status === 401) {
+                this.state.search_results = [];
+                this.state.search_loading = false;
+                this.state.search_error = 'Please log out and log in again to search messages.';
+                this.queueRender();
+                return;
+            }
+
+            if (!response?.ok) {
+                throw new Error(`Search failed: ${response?.status || 'unknown'}`);
+            }
+
+            const data = await response.json();
+            if (requestId !== this.searchRequestId) return;
+
+            this.state.search_results = Array.isArray(data) ? data : [];
+            this.state.search_loading = false;
+            this.state.search_error = '';
+            this.queueRender();
+        } catch (error) {
+            if (requestId !== this.searchRequestId) return;
+            console.error('Unable to search messages', error);
+            this.state.search_results = [];
+            this.state.search_loading = false;
+            this.state.search_error = 'Unable to search messages right now.';
+            this.queueRender();
+        }
+    }
+
+    async openSearchResult(result) {
+        if (!result?.jid || !this.api) return;
+        const type = result.type === 'groupchat' ? 'groupchat' : 'chat';
+        await this.openChat(result.jid, type);
+    }
+
     findChatbox(jid) {
         const target = bareJid(jid);
         return (this._converse?.state?.chatboxes?.models || []).find((chat) => bareJid(chat.get('jid')) === target) || null;
@@ -261,6 +377,13 @@ export class RediffWorkspace extends HTMLElement {
     handleInput(ev) {
         if (ev.target.matches('.rediff-workspace-search-input')) {
             this.state.query = ev.target.value || '';
+            this.state.search_error = '';
+            if (this.state.query.trim().length < 2) {
+                this.state.search_results = [];
+                this.state.search_loading = false;
+            } else {
+                this.searchDebounce();
+            }
             this.queueRender();
         }
     }
@@ -274,7 +397,16 @@ export class RediffWorkspace extends HTMLElement {
             const type = button.getAttribute('data-chat-type') || 'chat';
             await this.openChat(jid, type);
             this.state.query = '';
+            this.state.search_results = [];
+            this.state.search_loading = false;
+            this.state.search_error = '';
             this.queueRender();
+            return;
+        }
+        if (button.matches('[data-rediff-workspace-open-message]')) {
+            const jid = button.getAttribute('data-jid');
+            const type = button.getAttribute('data-chat-type') || 'chat';
+            await this.openChat(jid, type);
             return;
         }
         if (button.matches('[data-rediff-workspace-new-chat]')) {
@@ -287,6 +419,9 @@ export class RediffWorkspace extends HTMLElement {
         }
         if (button.matches('[data-rediff-workspace-clear-search]')) {
             this.state.query = '';
+            this.state.search_results = [];
+            this.state.search_loading = false;
+            this.state.search_error = '';
             this.queueRender();
         }
     }
@@ -294,50 +429,117 @@ export class RediffWorkspace extends HTMLElement {
     async handleKeyDown(ev) {
         if (ev.key === 'Escape' && this.state.query) {
             this.state.query = '';
+            this.state.search_results = [];
+            this.state.search_loading = false;
+            this.state.search_error = '';
             this.queueRender();
             return;
         }
         if (ev.key === 'Enter' && ev.target.matches('.rediff-workspace-search-input')) {
-            const [first] = this.getSearchResults();
+            const [first] = this.getMessageSearchResults();
             if (first) {
                 ev.preventDefault();
-                await this.openChat(first.jid, first.type);
-                this.state.query = '';
-                this.queueRender();
+                await this.openSearchResult(first);
             }
         }
     }
 
-    renderSearchResults() {
-        const results = this.getSearchResults();
-        if (!this.state.query.trim()) return '';
+    renderLocalSearchResults(results) {
         if (!results.length) {
-            return '<div class="rediff-workspace-search-results"><p class="rediff-workspace-empty">No matching chats or people.</p></div>';
+            return '<p class="rediff-workspace-empty">No matching chats or people.</p>';
         }
+
+        return results
+            .map(
+                (result) => `
+                    <button
+                        type="button"
+                        class="rediff-workspace-search-result"
+                        data-rediff-workspace-open
+                        data-jid="${escapeHTML(result.jid)}"
+                        data-chat-type="${escapeHTML(result.type)}"
+                    >
+                        <span class="rediff-workspace-search-result__avatar ${result.type === 'groupchat' ? 'is-group' : ''}">
+                            ${escapeHTML(result.name.slice(0, 1))}
+                        </span>
+                        <span class="rediff-workspace-search-result__body">
+                            <span class="rediff-workspace-search-result__title">${escapeHTML(result.name)}</span>
+                            <span class="rediff-workspace-search-result__meta">${escapeHTML(result.meta)}</span>
+                        </span>
+                    </button>
+                `,
+            )
+            .join('');
+    }
+
+    renderMessageSearchResults(results) {
+        if (this.state.search_loading) {
+            return '<p class="rediff-workspace-empty">Searching the archive...</p>';
+        }
+        if (this.state.search_error) {
+            return `<p class="rediff-workspace-empty">${escapeHTML(this.state.search_error)}</p>`;
+        }
+        if (!results.length) {
+            return '<p class="rediff-workspace-empty">No archived messages matched this search.</p>';
+        }
+
+        return results
+            .map(
+                (result) => `
+                    <button
+                        type="button"
+                        class="rediff-workspace-message-result"
+                        data-rediff-workspace-open-message
+                        data-jid="${escapeHTML(result.jid)}"
+                        data-chat-type="${escapeHTML(result.type)}"
+                    >
+                        <span class="rediff-workspace-message-result__avatar ${result.type === 'groupchat' ? 'is-group' : ''}">
+                            ${escapeHTML((result.name || result.jid || 'Conversation').slice(0, 1))}
+                        </span>
+                        <span class="rediff-workspace-message-result__body">
+                            <span class="rediff-workspace-message-result__row">
+                                <span class="rediff-workspace-message-result__title">${escapeHTML(result.name || result.jid)}</span>
+                                <span class="rediff-workspace-message-result__time">${escapeHTML(formatDateTime(result.timestamp || 0))}</span>
+                            </span>
+                            <span class="rediff-workspace-message-result__meta">${escapeHTML(result.type === 'groupchat' ? 'Space message' : 'Direct message')}</span>
+                            <span class="rediff-workspace-message-result__snippet">${escapeHTML(result.snippet || 'Message preview unavailable')}</span>
+                        </span>
+                    </button>
+                `,
+            )
+            .join('');
+    }
+
+    renderSearchResults() {
+        if (!this.state.query.trim()) return '';
+
+        const quickResults = this.getSearchResults();
+        const messageResults = this.getMessageSearchResults();
+        const queryLength = this.state.query.trim().length;
+        const showArchive = queryLength >= 2 || this.state.search_loading || this.state.search_error || messageResults.length > 0;
 
         return `
             <div class="rediff-workspace-search-results">
-                ${results
-                    .map(
-                        (result) => `
-                            <button
-                                type="button"
-                                class="rediff-workspace-search-result"
-                                data-rediff-workspace-open
-                                data-jid="${escapeHTML(result.jid)}"
-                                data-chat-type="${escapeHTML(result.type)}"
-                            >
-                                <span class="rediff-workspace-search-result__avatar ${result.type === 'groupchat' ? 'is-group' : ''}">
-                                    ${escapeHTML(result.name.slice(0, 1))}
-                                </span>
-                                <span class="rediff-workspace-search-result__body">
-                                    <span class="rediff-workspace-search-result__title">${escapeHTML(result.name)}</span>
-                                    <span class="rediff-workspace-search-result__meta">${escapeHTML(result.meta)}</span>
-                                </span>
-                            </button>
-                        `,
-                    )
-                    .join('')}
+                <div class="rediff-workspace-search-results__section">
+                    <div class="rediff-workspace-search-results__header">
+                        <span>Quick matches</span>
+                        <span>${quickResults.length}</span>
+                    </div>
+                    ${this.renderLocalSearchResults(quickResults)}
+                </div>
+                ${
+                    showArchive
+                        ? `
+                            <div class="rediff-workspace-search-results__section">
+                                <div class="rediff-workspace-search-results__header">
+                                    <span>Message archive</span>
+                                    <span>${messageResults.length}</span>
+                                </div>
+                                ${this.renderMessageSearchResults(messageResults)}
+                            </div>
+                        `
+                        : ''
+                }
             </div>
         `;
     }
@@ -402,9 +604,9 @@ export class RediffWorkspace extends HTMLElement {
                         <input
                             class="rediff-workspace-search-input"
                             type="search"
-                            placeholder="Search chats, people, and groups"
+                            placeholder="Search conversations and archived messages"
                             value="${escapeHTML(this.state.query)}"
-                            aria-label="Search chats, people, and groups"
+                            aria-label="Search conversations and archived messages"
                         />
                         ${
                             this.state.query
@@ -416,6 +618,7 @@ export class RediffWorkspace extends HTMLElement {
                         <button type="button" class="rediff-workspace-pill" data-rediff-workspace-new-chat>New chat</button>
                         <button type="button" class="rediff-workspace-pill is-secondary" data-rediff-workspace-new-group>New group</button>
                     </div>
+                    ${this.state.query ? `<div class="rediff-workspace-searchbar__summary">${escapeHTML(this.getSearchSummary())}</div>` : ''}
                     ${this.renderSearchResults()}
                 </header>
                 <aside class="rediff-workspace-recents" aria-label="Recent conversations">
@@ -448,7 +651,7 @@ export class RediffWorkspace extends HTMLElement {
     }
 }
 
-export const mountRediffWorkspace = (api, _converse, actions) => {
+export const mountRediffWorkspace = (api, _converse, actions, auth = null) => {
     if (!customElements.get('converse-rediff-workspace')) {
         customElements.define('converse-rediff-workspace', RediffWorkspace);
     }
@@ -459,6 +662,6 @@ export const mountRediffWorkspace = (api, _converse, actions) => {
         workspace = document.createElement('converse-rediff-workspace');
         shell.append(workspace);
     }
-    workspace.setContext(api, _converse, actions);
+    workspace.setContext(api, _converse, actions, auth);
     return workspace;
 };

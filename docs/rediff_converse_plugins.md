@@ -15,9 +15,11 @@ The `rediff_new_chat` plugin registers Rediff settings with `api.settings.extend
 
 The roster's native `showNewChatModal` and `showAddContactModal` methods are bridged to `api.modal.show('converse-rediff-new-chat-modal')`, so the existing Converse Start New Chat and Add Contact actions open the Rediff tenant-safe search modal instead of a page-level overlay. Search still uses `/api/users/search` with a bearer token and filters results to the current tenant and vhost before allowing add/open.
 
+The Rediff workspace search bar now also queries `/api/messages/search` so users can search their own archived conversation history across direct chats and managed spaces. The backend keeps that search tenant-scoped by looking at the logged-in user's archive rows and optionally narrowing the results by conversation JID or date range.
+
 ## Groups entry point
 
-`converse.js/rediff-groups.js` is now only a compatibility bridge. The Rediff plugin adds normal `+ New Chat` and `+ New Group` actions to the Converse sidebar from component lifecycle hooks, adds a `New Group` item to the roomslist dropdown, and opens `converse-rediff-groups-modal` through `api.modal.show(...)`. The same modal also has a participant-management mode for managed MUCs: owners/admins can search same-tenant/vhost users, existing members are excluded from add results, owners/admins can remove non-owner participants, and non-owner participants can exit the group.
+`converse.js/rediff-groups.js` is now only a compatibility bridge. The Rediff plugin adds normal `+ New Chat` and `+ New Group` actions to the Converse sidebar from component lifecycle hooks, adds a `New Group` item to the roomslist dropdown, and opens `converse-rediff-groups-modal` through `api.modal.show(...)`. The same modal also has a participant-management mode for managed MUCs: owners/admins can search same-tenant/vhost users, existing members are excluded from add results, owners/admins can remove non-owner participants, and non-owner participants can exit the group. Group creation/opening now also triggers an auth-service sync call so the live room affiliations match the stored membership list.
 
 ## Adding future Rediff features
 

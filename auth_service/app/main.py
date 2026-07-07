@@ -5,7 +5,11 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from . import database, group_service, keycloak, schemas, user_service
+from datetime import datetime
+
+from fastapi import Query
+
+from . import database, group_service, keycloak, message_service, schemas, user_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,6 +23,8 @@ admin_bearer_scheme = HTTPBearer(auto_error=False)
 def startup_group_schema() -> None:
     try:
         database.init_group_schema()
+        for vhost in keycloak.allowed_vhosts():
+            database.init_archive_schema(database.archive_database_name_for_vhost(vhost))
     except Exception as exc:
         logger.warning("Group schema initialization failed: %s", exc)
 
@@ -261,6 +267,11 @@ def remove_group_member(group_id: int, member_jid: str, current: group_service.C
     return group_service.remove_member(group_id, member_jid, current)
 
 
+@app.post("/api/groups/{group_id}/sync", response_model=schemas.GroupSyncResponse)
+def sync_group_room(group_id: int, current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.sync_room_members(group_id, current)
+
+
 @app.get("/health")
 def health_check():
     try:
@@ -290,3 +301,44 @@ def search_users(q: str, credentials: HTTPAuthorizationCredentials | None = Depe
     current_tenant = _current_tenant_from_claims(claims)
     current_vhost = _current_vhost_from_claims(claims)
     return keycloak.search_active_users_for_tenant(q, current_tenant, assigned_vhost=current_vhost, limit=20)
+
+
+@app.get("/api/messages/search", response_model=list[schemas.MessageSearchResult])
+def search_messages(
+    q: str,
+    with_jid: str | None = None,
+    start: datetime | None = Query(default=None),
+    end: datetime | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=50),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+):
+    if not credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required")
+
+    claims = keycloak.verify_access_token(credentials.credentials)
+    current_jid = _current_jid_from_claims(claims)
+    current_tenant = _current_tenant_from_claims(claims)
+    current_vhost = _current_vhost_from_claims(claims)
+    try:
+        return message_service.search_messages(
+            current_jid=current_jid,
+            tenant_slug=current_tenant,
+            vhost=current_vhost,
+            q=q,
+            with_jid=with_jid,
+            start=start,
+            end=end,
+            limit=limit,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Message search failed for user=%s tenant=%s vhost=%s q=%r with_jid=%r",
+            current_jid,
+            current_tenant,
+            current_vhost,
+            q,
+            with_jid,
+        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Message search failed") from exc

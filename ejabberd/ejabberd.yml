@@ -89,6 +89,7 @@ listen:
       /admin: ejabberd_web_admin
       /api: mod_http_api
       /bosh: mod_bosh
+      /upload: mod_http_upload
       /ws: ejabberd_http_ws
 
   - port: 5444
@@ -129,6 +130,6 @@ modules:
   mod_http_upload:
     host: "upload.@HOST@"
     docroot: "/home/ejabberd/upload"
-    put_url: "http://@HOST@:5444/upload"
+    put_url: "http://@HOST@:5280/upload"
     max_size: 52428800
     access: local

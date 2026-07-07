@@ -12,6 +12,7 @@ Authenticated with the same bearer token used by New Chat:
 - `PATCH /api/groups/{id}` allows owner/admin metadata edits.
 - `POST /api/groups/{id}/join` verifies membership before the UI opens the MUC.
 - `POST /api/groups/{id}/members` and `DELETE /api/groups/{id}/members/{jid}` manage same-tenant members for owner/admin users.
+- `POST /api/groups/{id}/sync` pushes the stored membership list back into the live MUC room via ejabberd affiliation updates.
 
 Tables are created on auth-service startup if missing:
 
@@ -35,7 +36,7 @@ These helpers allow a provisioning job or RPC bridge to pre-bind managed rooms i
 
 ## Provisioning Boundary
 
-The repo does not currently include a backend XMPP admin client for configuring MUC rooms or affiliations. The current working subset returns a members-only persistent room config to the UI and uses Converse `api.rooms.open(..., { auto_configure: true })` immediately after creation.
+The repo does not currently include a backend XMPP admin client for creating rooms or pre-binding room tenant ownership. The current working subset returns a members-only persistent room config to the UI, uses Converse `api.rooms.open(..., { auto_configure: true })` immediately after creation, and then calls `POST /api/groups/{id}/sync` to align ejabberd affiliations with the stored group membership.
 
 For production-hard provisioning, add an auth-service to ejabberd admin/RPC bridge that:
 

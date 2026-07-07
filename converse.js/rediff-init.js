@@ -21,6 +21,8 @@ await converse.initialize(config);
 const getConverseApi = () => window.rediffConverse?.api || window.converse?.api;
 
 const bareJID = (jid) => jid?.split('/')[0];
+const waitWithTimeout = (promise, ms) =>
+    Promise.race([promise, new Promise((resolve) => window.setTimeout(resolve, ms))]);
 const isChatMounted = () => Boolean(document.querySelector('.chatbox:not(#controlbox), .chatroom'));
 
 function clickFirstRosterContact() {
@@ -45,10 +47,10 @@ async function openInitialRosterChat() {
     }
 
     try {
-        await api.waitUntil('rosterContactsFetched');
-        await api.waitUntil('chatBoxesFetched');
+        await waitWithTimeout(api.waitUntil('chatBoxesFetched'), 800);
+        await waitWithTimeout(api.waitUntil('rosterContactsFetched'), 1200);
 
-        const contacts = (await api.contacts.get()) || [];
+        const contacts = (await waitWithTimeout(Promise.resolve(api.contacts.get()), 300)) || [];
         const ownJID = bareJID(api.user.jid?.());
         const firstContact = contacts.find((contact) => {
             const jid = contact?.get?.('jid');

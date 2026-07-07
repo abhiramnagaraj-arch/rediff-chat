@@ -1,3 +1,4 @@
+import logging
 import re
 import secrets
 from dataclasses import dataclass
@@ -6,6 +7,8 @@ from typing import Any
 from fastapi import HTTPException, status
 
 from . import database, ejabberd, keycloak, schemas
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -64,6 +67,65 @@ def _room_config(group: dict[str, Any]) -> dict[str, Any]:
         "roomname": group["name"],
         "roomdesc": group.get("description") or "",
         "whois": "moderators",
+    }
+
+
+def _member_affiliation(member: dict[str, Any], owner_jid: str) -> str:
+    member_jid = bare_jid(member["member_jid"])
+    owner_jid = bare_jid(owner_jid)
+    if member_jid == owner_jid:
+        return "owner"
+    if member.get("role") == "admin":
+        return "admin"
+    return "member"
+
+
+def _sync_member_affiliation(muc_jid: str, member_jid: str, affiliation: str) -> bool:
+    try:
+        if affiliation == "none":
+            return ejabberd.remove_room_affiliation(muc_jid, member_jid)
+        return ejabberd.set_room_affiliation(muc_jid, member_jid, affiliation)
+    except Exception as exc:
+        if ejabberd.is_missing_room_error(exc):
+            logger.info("MUC room %s does not exist while syncing %s as %s", muc_jid, member_jid, affiliation)
+            return False
+        logger.warning("Unable to sync MUC affiliation for %s in %s as %s: %s", member_jid, muc_jid, affiliation, exc)
+        return False
+
+
+def sync_group_members(group_id: int, current: CurrentUser) -> dict[str, Any]:
+    with database.connection() as conn:
+        with conn.cursor() as cur:
+            group = _group_row(cur, group_id, current)
+            member = _member_row(cur, group_id, current.jid)
+            if not member:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this group")
+            cur.execute(
+                """
+                SELECT member_jid, role, affiliation, created_at
+                FROM rediff_group_members
+                WHERE group_id = %s AND tenant_slug = %s
+                ORDER BY role DESC, member_jid ASC
+                """,
+                (group_id, current.tenant_slug),
+            )
+            members = cur.fetchall()
+
+    synced_members = 0
+    skipped_members = 0
+    for member_row in members:
+        affiliation = _member_affiliation(member_row, group["owner_jid"])
+        if _sync_member_affiliation(group["muc_jid"], member_row["member_jid"], affiliation):
+            synced_members += 1
+        else:
+            skipped_members += 1
+
+    return {
+        "success": True,
+        "muc_jid": group["muc_jid"],
+        "synced_members": synced_members,
+        "skipped_members": skipped_members,
+        "room_missing": skipped_members > 0 and synced_members == 0,
     }
 
 
@@ -308,7 +370,7 @@ def add_member(group_id: int, req: schemas.GroupMemberCreate, current: CurrentUs
 
     with database.connection() as conn:
         with conn.cursor() as cur:
-            _group_row(cur, group_id, current)
+            group = _group_row(cur, group_id, current)
             _ensure_editor(cur, group_id, current)
             cur.execute(
                 """
@@ -323,7 +385,45 @@ def add_member(group_id: int, req: schemas.GroupMemberCreate, current: CurrentUs
                 (group_id, member_jid, current.tenant_slug, role, affiliation, current.jid),
             )
             row = cur.fetchone()
+
+    _sync_member_affiliation(group["muc_jid"], member_jid, affiliation)
     return schemas.GroupMemberResponse(**row)
+
+
+def sync_room_members(group_id: int, current: CurrentUser) -> dict[str, Any]:
+    with database.connection() as conn:
+        with conn.cursor() as cur:
+            group = _group_row(cur, group_id, current)
+            member = _member_row(cur, group_id, current.jid)
+            if not member:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this group")
+            cur.execute(
+                """
+                SELECT member_jid, role, affiliation, created_at
+                FROM rediff_group_members
+                WHERE group_id = %s AND tenant_slug = %s
+                ORDER BY role DESC, member_jid ASC
+                """,
+                (group_id, current.tenant_slug),
+            )
+            members = cur.fetchall()
+
+    synced_members = 0
+    skipped_members = 0
+    for member_row in members:
+        affiliation = _member_affiliation(member_row, group["owner_jid"])
+        if _sync_member_affiliation(group["muc_jid"], member_row["member_jid"], affiliation):
+            synced_members += 1
+        else:
+            skipped_members += 1
+
+    return {
+        "success": True,
+        "muc_jid": group["muc_jid"],
+        "synced_members": synced_members,
+        "skipped_members": skipped_members,
+        "room_missing": skipped_members > 0 and synced_members == 0,
+    }
 
 
 def remove_member(group_id: int, member_jid: str, current: CurrentUser) -> dict[str, bool]:
@@ -346,18 +446,12 @@ def remove_member(group_id: int, member_jid: str, current: CurrentUser) -> dict[
 
             muc_jid = group["muc_jid"]
 
-    try:
-        ejabberd.remove_room_affiliation(muc_jid, member_jid)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unable to remove participant from live group room",
-        ) from exc
-
     with database.connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 "DELETE FROM rediff_group_members WHERE group_id = %s AND member_jid = %s",
                 (group_id, member_jid),
             )
+
+    _sync_member_affiliation(muc_jid, member_jid, "none")
     return {"success": True}

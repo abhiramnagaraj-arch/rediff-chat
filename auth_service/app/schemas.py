@@ -118,3 +118,23 @@ class GroupJoinResponse(BaseModel):
     muc_jid: str
     room_config: dict[str, Any] = Field(default_factory=dict)
 
+
+class GroupSyncResponse(BaseModel):
+    success: bool
+    muc_jid: str
+    synced_members: int = 0
+    skipped_members: int = 0
+    room_missing: bool = False
+
+
+class MessageSearchResult(BaseModel):
+    jid: str
+    name: str
+    type: str
+    snippet: str = ""
+    timestamp: datetime
+    archive_id: int
+    origin_id: Optional[str] = None
+    peer: str = ""
+    bare_peer: str = ""
+    kind: Optional[str] = None

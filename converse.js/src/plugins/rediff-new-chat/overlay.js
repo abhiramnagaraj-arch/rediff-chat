@@ -15,6 +15,19 @@ const escapeHTML = (value) =>
 const getMessageText = (message) =>
     String(message?.get?.('body') || message?.get?.('message') || message?.get?.('plaintext') || '').trim();
 
+const IMAGE_URL_PATTERN = /\.(?:png|jpe?g|gif|webp|bmp|svg)(?:[?#].*)?$/i;
+
+const isImageURL = (value) => {
+    if (!value) return false;
+    try {
+        return IMAGE_URL_PATTERN.test(new URL(value, window.location.href).pathname);
+    } catch (error) {
+        return IMAGE_URL_PATTERN.test(String(value));
+    }
+};
+
+const getMessageImageURL = (message) => message?.get?.('oob_url') || getMessageText(message);
+
 const getTimestamp = (message) => {
     const value = message?.get?.('time') || message?.get?.('edited') || message?.get?.('received') || message?.get?.('created');
     const stamp = value ? new Date(value).getTime() : Number.NaN;
@@ -72,6 +85,7 @@ export class RediffOverlay extends HTMLElement {
             query: '',
             emoji_picker_jid: '',
             drafts: {},
+            pending_images: {},
         };
         this.messageListeners = new Map();
         this.collectionListeners = [];
@@ -109,6 +123,7 @@ export class RediffOverlay extends HTMLElement {
         this.removeEventListener('keydown', this.onKeyDown);
         this.removeEventListener('submit', this.onSubmit);
         document.removeEventListener('pointerdown', this.onDocumentPointerDown);
+        Object.values(this.state.pending_images || {}).forEach((images) => this.revokePendingImages(images));
         this.unbindCollections();
     }
 
@@ -519,6 +534,64 @@ export class RediffOverlay extends HTMLElement {
         });
     }
 
+    getPendingImages(jid) {
+        return this.state.pending_images?.[getWindowId(jid)] || [];
+    }
+
+    revokePendingImages(images = []) {
+        images.forEach((entry) => {
+            if (entry.preview_url) URL.revokeObjectURL(entry.preview_url);
+        });
+    }
+
+    setPendingImages(jid, files) {
+        const target = getWindowId(jid);
+        if (!target) return;
+        const previous = this.getPendingImages(target);
+        this.revokePendingImages(previous);
+        this.state.pending_images = {
+            ...(this.state.pending_images || {}),
+            [target]: files.map((file) => ({ file, preview_url: URL.createObjectURL(file) })),
+        };
+        this.queueRender();
+    }
+
+    clearPendingImages(jid) {
+        const target = getWindowId(jid);
+        if (!target) return;
+        this.revokePendingImages(this.getPendingImages(target));
+        const next = { ...(this.state.pending_images || {}) };
+        delete next[target];
+        this.state.pending_images = next;
+        const input = this.getMessageFileInput(target);
+        if (input) input.value = '';
+        this.queueRender();
+    }
+
+    removePendingImage(jid, index) {
+        const target = getWindowId(jid);
+        const pending = [...this.getPendingImages(target)];
+        const [removed] = pending.splice(index, 1);
+        if (removed?.preview_url) URL.revokeObjectURL(removed.preview_url);
+        if (pending.length) {
+            this.state.pending_images = { ...(this.state.pending_images || {}), [target]: pending };
+            this.queueRender();
+        } else {
+            this.clearPendingImages(target);
+        }
+    }
+
+    async sendPendingImages(jid) {
+        const target = getWindowId(jid);
+        const window = this.getWindow(target);
+        const files = this.getPendingImages(target).map((entry) => entry.file);
+        if (window?.chat && files.length) {
+            await window.chat.sendFiles(files);
+            this.clearPendingImages(target);
+            this.shouldScrollToBottom = true;
+        }
+    }
+
     getMessageFileInput(window_jid) {
         return this.querySelector(`input[data-rediff-overlay-file-input="${window_jid}"]`);
     }
@@ -536,13 +609,8 @@ export class RediffOverlay extends HTMLElement {
     handleFileSelection(ev) {
         const input = /** @type {HTMLInputElement} */ (ev.target);
         const jid = input.getAttribute('data-rediff-overlay-file-input');
-        const window = this.getWindow(jid);
-        const chat = window?.chat;
-        const files = Array.from(input.files || []);
-        if (chat && files.length) {
-            chat.sendFiles(files);
-        }
-        input.value = '';
+        const files = Array.from(input.files || []).filter((file) => file.type?.startsWith('image/'));
+        if (jid && files.length) this.setPendingImages(jid, files);
     }
 
     async handleSubmit(ev) {
@@ -691,6 +759,17 @@ export class RediffOverlay extends HTMLElement {
             this.setState({ emoji_picker_jid: '' });
             return;
         }
+        if (button.matches('[data-rediff-overlay-remove-image]')) {
+            const jid = button.getAttribute('data-jid');
+            const index = Number(button.getAttribute('data-index'));
+            this.removePendingImage(jid, index);
+            return;
+        }
+        if (button.matches('[data-rediff-overlay-send-images]')) {
+            const jid = button.getAttribute('data-jid');
+            await this.sendPendingImages(jid);
+            return;
+        }
         if (button.matches('[data-rediff-overlay-file-button]')) {
             const jid = button.getAttribute('data-jid');
             this.setState({ emoji_picker_jid: '' });
@@ -820,10 +899,15 @@ export class RediffOverlay extends HTMLElement {
                       .map((message) => {
                           const own = message.get('sender') === 'me';
                           const author = own ? 'You' : message.get('from')?.split('@')[0] || getChatName(chat);
+                          const text = getMessageText(message);
+                          const imageURL = getMessageImageURL(message);
+                          const bodyMarkup = isImageURL(imageURL)
+                              ? `<a class="rediff-overlay-window__message-image" href="${escapeHTML(imageURL)}" target="_blank" rel="noopener"><img src="${escapeHTML(imageURL)}" alt="Shared image" /></a>`
+                              : `<p class="rediff-overlay-window__message-body">${escapeHTML(text)}</p>`;
                           return `
                               <article class="rediff-overlay-window__message ${own ? 'is-own' : ''}">
                                   <p class="rediff-overlay-window__message-meta">${escapeHTML(author)}${formatTime(message) ? ` · ${escapeHTML(formatTime(message))}` : ''}</p>
-                                  <p class="rediff-overlay-window__message-body">${escapeHTML(getMessageText(message))}</p>
+                                  ${bodyMarkup}
                               </article>
                           `;
                       })
@@ -838,6 +922,26 @@ export class RediffOverlay extends HTMLElement {
                         .map((window) => {
                             const activeChat = window.chat;
                             const isGroup = activeChat.get('type') === 'groupchat';
+                            const pendingImages = this.getPendingImages(window.jid);
+                            const pendingImageMarkup = pendingImages.length
+                                ? `
+                                    <div class="rediff-overlay-window__image-preview">
+                                        <div class="rediff-overlay-window__image-preview-items">
+                                            ${pendingImages
+                                                .map(
+                                                    (entry, index) => `
+                                                        <div class="rediff-overlay-window__image-preview-item">
+                                                            <img src="${escapeHTML(entry.preview_url)}" alt="${escapeHTML(entry.file.name || 'Selected image')}" />
+                                                            <button type="button" data-rediff-overlay-remove-image data-jid="${escapeHTML(window.jid)}" data-index="${index}" aria-label="Remove image">×</button>
+                                                        </div>
+                                                    `,
+                                                )
+                                                .join('')}
+                                        </div>
+                                        <button type="button" class="rediff-overlay-window__image-preview-send" data-rediff-overlay-send-images data-jid="${escapeHTML(window.jid)}">Send</button>
+                                    </div>
+                                `
+                                : '';
                             return `
                                 <section class="rediff-overlay-window" data-jid="${escapeHTML(window.jid)}" aria-hidden="false">
                                     <header class="rediff-overlay-window__header">
@@ -859,11 +963,12 @@ export class RediffOverlay extends HTMLElement {
                                     </header>
                                     <div class="rediff-overlay-window__messages">${renderMessageMarkup(activeChat)}</div>
                                     <form class="rediff-overlay-window__composer" data-jid="${escapeHTML(window.jid)}">
+                                        ${pendingImageMarkup}
                                         <div class="rediff-overlay-window__composer-actions">
                                             <div class="rediff-overlay-window__composer-tools">
                                                 <button type="button" class="rediff-overlay-window__tool" data-rediff-overlay-emoji-button data-jid="${escapeHTML(window.jid)}" aria-label="Insert emoji" aria-expanded="${this.state.emoji_picker_jid === getWindowId(window.jid) ? 'true' : 'false'}">☺</button>
-                                                <button type="button" class="rediff-overlay-window__tool" data-rediff-overlay-file-button data-jid="${escapeHTML(window.jid)}" aria-label="Upload file">📎</button>
-                                                <input type="file" multiple hidden data-rediff-overlay-file-input="${escapeHTML(window.jid)}" />
+                                                <button type="button" class="rediff-overlay-window__tool" data-rediff-overlay-file-button data-jid="${escapeHTML(window.jid)}" aria-label="Send image" title="Send image">📎</button>
+                                                <input type="file" accept="image/*" multiple hidden data-rediff-overlay-file-input="${escapeHTML(window.jid)}" />
                                             </div>
                                         </div>
                                         <div class="rediff-overlay-window__composer-body">

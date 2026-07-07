@@ -1,6 +1,7 @@
 import os
 from contextlib import contextmanager
 from typing import Iterator
+from urllib.parse import urlsplit, urlunsplit
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -11,22 +12,26 @@ def _env(name: str, default: str) -> str:
     return value.strip() if value else default
 
 
-def database_url() -> str:
+def database_url(database_name: str | None = None) -> str:
     configured = _env("DATABASE_URL", "")
     if configured:
-        return configured
+        if not database_name:
+            return configured
+        parts = urlsplit(configured)
+        path = f"/{database_name.lstrip('/')}"
+        return urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
 
+    db = database_name or _env("POSTGRES_DB", "rediff_v1_db")
     host = _env("POSTGRES_HOST", "rediff_postgres")
     port = _env("POSTGRES_PORT", "5432")
-    db = _env("POSTGRES_DB", "rediff_v1_db")
     user = _env("POSTGRES_USER", "rediff")
     password = _env("POSTGRES_PASSWORD", "")
     return f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
 
 @contextmanager
-def connection() -> Iterator[psycopg2.extensions.connection]:
-    conn = psycopg2.connect(database_url(), cursor_factory=RealDictCursor)
+def connection(database_name: str | None = None) -> Iterator[psycopg2.extensions.connection]:
+    conn = psycopg2.connect(database_url(database_name), cursor_factory=RealDictCursor)
     try:
         yield conn
         conn.commit()
@@ -35,6 +40,19 @@ def connection() -> Iterator[psycopg2.extensions.connection]:
         raise
     finally:
         conn.close()
+
+
+def archive_database_name_for_vhost(vhost: str) -> str:
+    first_label = str(vhost or "").strip().split(".", 1)[0].lower()
+    if not first_label:
+        raise ValueError("vhost must not be empty")
+    return f"rediff_{first_label}_db"
+
+
+def _execute_ddl(ddl: str, database_name: str | None = None) -> None:
+    with connection(database_name=database_name) as conn:
+        with conn.cursor() as cur:
+            cur.execute(ddl)
 
 
 def init_group_schema() -> None:
@@ -75,6 +93,29 @@ def init_group_schema() -> None:
     CREATE INDEX IF NOT EXISTS i_rediff_group_members_user
         ON rediff_group_members (tenant_slug, member_jid);
     """
-    with connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(ddl)
+    _execute_ddl(ddl)
+
+
+def init_archive_schema(database_name: str | None = None) -> None:
+    ddl = """
+    CREATE TABLE IF NOT EXISTS archive (
+        username text NOT NULL,
+        timestamp BIGINT NOT NULL,
+        peer text NOT NULL,
+        bare_peer text NOT NULL,
+        xml text NOT NULL,
+        txt text,
+        id BIGSERIAL,
+        kind text,
+        nick text,
+        origin_id text,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS i_username_timestamp ON archive USING btree (username, timestamp);
+    CREATE INDEX IF NOT EXISTS i_username_peer ON archive USING btree (username, peer);
+    CREATE INDEX IF NOT EXISTS i_username_bare_peer ON archive USING btree (username, bare_peer);
+    CREATE INDEX IF NOT EXISTS i_timestamp ON archive USING btree (timestamp);
+    CREATE INDEX IF NOT EXISTS i_archive_username_origin_id ON archive USING btree (username, origin_id);
+    """
+    _execute_ddl(ddl, database_name=database_name)

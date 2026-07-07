@@ -11,6 +11,231 @@ let managedGroups = [];
 const escapeHTML = (value) =>
     String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
+const IMAGE_URL_PATTERN = /\.(?:png|jpe?g|gif|webp|bmp|svg)(?:[?#].*)?$/i;
+
+const isImageURL = (value) => {
+    if (!value) return false;
+    try {
+        return IMAGE_URL_PATTERN.test(new URL(value, window.location.href).pathname);
+    } catch (error) {
+        return IMAGE_URL_PATTERN.test(String(value));
+    }
+};
+
+const getMessageImageURL = (message) => message?.get?.('oob_url') || message?.get?.('body') || message?.get?.('message') || '';
+
+const getConfiguredUploadBaseURL = (api) => {
+    const configured = api.settings.get('rediff_upload_base_url');
+    if (configured) return configured.replace(/\/$/, '');
+
+    const params = new URLSearchParams(window.location.search);
+    const xmppHost = params.get('xmppHost') || `${window.location.hostname || 'localhost'}:5280`;
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    return `${protocol}//${xmppHost}`.replace(/\/$/, '');
+};
+
+const shouldRewriteUploadURL = (url) => {
+    const host = url.hostname.toLowerCase();
+    return url.pathname.startsWith('/upload') && (host.endsWith('.chat.rediff.com') || host === 'chat.rediff.com');
+};
+
+const rewriteUploadURL = (api, value) => {
+    if (!value || api.settings.get('rediff_rewrite_upload_urls') === false) return value;
+    try {
+        const url = new URL(value, window.location.href);
+        if (!shouldRewriteUploadURL(url)) return value;
+        return `${getConfiguredUploadBaseURL(api)}${url.pathname}${url.search}${url.hash}`;
+    } catch (error) {
+        return value;
+    }
+};
+
+const installUploadURLRewrite = (api, _converse) => {
+    const patchMessageClass = (MessageClass) => {
+        const proto = MessageClass?.prototype;
+        if (!proto?.getRequestSlotURL || proto.getRequestSlotURL.rediffUploadRewrite) return;
+
+        const original = proto.getRequestSlotURL;
+        proto.getRequestSlotURL = async function rediffGetRequestSlotURL(...args) {
+            const result = await original.apply(this, args);
+            const put = rewriteUploadURL(api, this.get('put'));
+            const get = rewriteUploadURL(api, this.get('get'));
+            if (put !== this.get('put') || get !== this.get('get')) {
+                this.save({ put, get });
+            }
+            return result;
+        };
+        proto.getRequestSlotURL.rediffUploadRewrite = true;
+    };
+
+    patchMessageClass(_converse?.exports?.Message);
+    patchMessageClass(_converse?.exports?.MUCMessage);
+};
+
+
+const markImageMessageInline = (message) => {
+    if (isImageURL(getMessageImageURL(message)) && message.get('hide_url_previews') !== false) {
+        message.save({ hide_url_previews: false });
+    }
+};
+
+const showExistingImageMessagesInline = (_converse) => {
+    (_converse?.state?.chatboxes?.models || []).forEach((chatbox) => {
+        (chatbox.messages?.models || []).forEach(markImageMessageInline);
+    });
+};
+
+const installImageMessageRendering = (api, _converse) => {
+    if (!api.rediffImageRenderingInstalled) {
+        api.rediffImageRenderingInstalled = true;
+
+        api.listen.on('afterFileUploaded', (message, attrs) => {
+            const imageURL = attrs?.oob_url || attrs?.body || attrs?.message;
+            return isImageURL(imageURL) ? { ...attrs, hide_url_previews: false } : attrs;
+        });
+
+        api.listen.on('afterMessageCreated', (_chatbox, message) => {
+            markImageMessageInline(message);
+        });
+    }
+
+    showExistingImageMessagesInline(_converse);
+};
+
+const revokePendingUploadURLs = (toolbar) => {
+    (toolbar.rediff_pending_images || []).forEach((entry) => {
+        if (entry.preview_url) URL.revokeObjectURL(entry.preview_url);
+    });
+};
+
+const getNativeUploadPreviewHost = (toolbar) =>
+    toolbar.closest('.chat-message-form, form') || toolbar.parentElement || toolbar;
+
+const renderNativeUploadPreview = (toolbar) => {
+    const host = getNativeUploadPreviewHost(toolbar);
+    host.querySelector('[data-rediff-native-upload-preview]')?.remove();
+    const pending = toolbar.rediff_pending_images || [];
+    host.classList.toggle('rediff-has-native-upload-preview', Boolean(pending.length));
+    if (!pending.length) return;
+
+    const preview = document.createElement('div');
+    preview.className = 'rediff-native-upload-preview';
+    preview.setAttribute('data-rediff-native-upload-preview', 'true');
+    preview.innerHTML = `
+        <div class="rediff-native-upload-preview__items">
+            ${pending
+                .map(
+                    (entry, index) => `
+                        <div class="rediff-native-upload-preview__item">
+                            <img src="${escapeHTML(entry.preview_url)}" alt="${escapeHTML(entry.file.name || 'Selected image')}" />
+                            <button type="button" class="rediff-native-upload-preview__remove" data-rediff-native-upload-remove="${index}" aria-label="Remove image">×</button>
+                        </div>
+                    `,
+                )
+                .join('')}
+        </div>
+    `;
+
+    preview.addEventListener('click', (ev) => {
+        const remove = ev.target.closest?.('[data-rediff-native-upload-remove]');
+        if (remove) {
+            ev.preventDefault();
+            toolbar.removeRediffPendingImage(Number(remove.getAttribute('data-rediff-native-upload-remove')));
+            return;
+        }
+    });
+
+    host.prepend(preview);
+};
+
+const installNativeImageUploadPreview = () => {
+    const ToolbarElement = customElements.get('converse-chat-toolbar');
+    if (!ToolbarElement?.prototype) {
+        customElements.whenDefined('converse-chat-toolbar').then(() => installNativeImageUploadPreview());
+        return;
+    }
+    const proto = ToolbarElement.prototype;
+    if (proto.onFileSelection?.rediffImagePreview) return;
+
+    const originalOnFileSelection = proto.onFileSelection;
+    const originalUpdated = proto.updated;
+    const originalDisconnected = proto.disconnectedCallback;
+
+    proto.setRediffPendingImages = function setRediffPendingImages(files) {
+        revokePendingUploadURLs(this);
+        this.rediff_pending_images = files.map((file) => ({
+            file,
+            preview_url: URL.createObjectURL(file),
+        }));
+        this.querySelector('.fileupload')?.setAttribute('accept', 'image/*');
+        this.requestUpdate?.();
+        window.requestAnimationFrame(() => renderNativeUploadPreview(this));
+    };
+
+    proto.removeRediffPendingImage = function removeRediffPendingImage(index) {
+        const pending = [...(this.rediff_pending_images || [])];
+        const [removed] = pending.splice(index, 1);
+        if (removed?.preview_url) URL.revokeObjectURL(removed.preview_url);
+        this.rediff_pending_images = pending;
+        const input = this.querySelector('.fileupload');
+        if (!pending.length && input) input.value = '';
+        this.requestUpdate?.();
+        window.requestAnimationFrame(() => renderNativeUploadPreview(this));
+    };
+
+    proto.clearRediffPendingImages = function clearRediffPendingImages() {
+        revokePendingUploadURLs(this);
+        this.rediff_pending_images = [];
+        getNativeUploadPreviewHost(this).classList.remove('rediff-has-native-upload-preview');
+        const input = this.querySelector('.fileupload');
+        if (input) input.value = '';
+        this.requestUpdate?.();
+        window.requestAnimationFrame(() => renderNativeUploadPreview(this));
+    };
+
+    proto.bindRediffNativeSendButton = function bindRediffNativeSendButton() {
+        const sendButton = this.querySelector('.send-button');
+        if (!sendButton || sendButton.rediffImagePreviewBound) return;
+        sendButton.addEventListener('click', (ev) => {
+            if ((this.rediff_pending_images || []).length) this.sendRediffPendingImages(ev);
+        });
+        sendButton.rediffImagePreviewBound = true;
+    };
+
+    proto.sendRediffPendingImages = function sendRediffPendingImages(ev) {
+        ev?.preventDefault?.();
+        ev?.stopPropagation?.();
+        const files = (this.rediff_pending_images || []).map((entry) => entry.file);
+        if (files.length) this.model.sendFiles(files);
+        this.clearRediffPendingImages();
+    };
+
+    proto.onFileSelection = function rediffOnFileSelection(ev) {
+        const input = /** @type {HTMLInputElement} */ (ev.target);
+        const files = Array.from(input.files || []);
+        const images = files.filter((file) => file.type?.startsWith('image/'));
+        if (images.length) {
+            this.setRediffPendingImages(images);
+            return;
+        }
+        originalOnFileSelection?.call(this, ev);
+    };
+    proto.onFileSelection.rediffImagePreview = true;
+
+    proto.updated = function rediffToolbarUpdated(...args) {
+        originalUpdated?.apply(this, args);
+        this.querySelector('.fileupload')?.setAttribute('accept', 'image/*');
+        this.bindRediffNativeSendButton();
+        renderNativeUploadPreview(this);
+    };
+    proto.updated.rediffImagePreview = true;
+
+    proto.disconnectedCallback = function rediffToolbarDisconnected(...args) {
+        revokePendingUploadURLs(this);
+        originalDisconnected?.apply(this, args);
+    };
+};
+
 const getConverseApi = (plugin) => plugin.api || plugin._converse?.api || window.converse?.api;
 
 const openRediffNewChat = (api, ev) => {
@@ -50,6 +275,16 @@ const openManagedGroupFromSidebar = async (api, auth, group, ev) => {
             if (!missingToken && response?.ok) roomData = await response.json();
         }
 
+        if (group.id && auth?.authenticatedFetch) {
+            await auth.authenticatedFetch(`${GROUPS_URL}/${group.id}/sync`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}',
+            }).catch((error) => {
+                console.warn('Unable to sync managed group before opening', group?.muc_jid, error);
+            });
+        }
+
         await api.rooms.open(
             roomData.muc_jid || group.muc_jid,
             {
@@ -60,6 +295,16 @@ const openManagedGroupFromSidebar = async (api, auth, group, ev) => {
             },
             true
         );
+
+        if (group.id && auth?.authenticatedFetch) {
+            await auth.authenticatedFetch(`${GROUPS_URL}/${group.id}/sync`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}',
+            }).catch((error) => {
+                console.warn('Unable to sync managed group after opening', group?.muc_jid, error);
+            });
+        }
     } catch (error) {
         console.warn('Unable to open managed group from sidebar', group?.muc_jid, error);
     }
@@ -411,9 +656,9 @@ const installNativeEntryBridge = (api, auth) => {
     }, 0);
 };
 
-const syncWorkspaceSurface = (api, _converse, actions) => {
+const syncWorkspaceSurface = (api, _converse, actions, auth) => {
     const overlay = defineRediffOverlay(api, _converse, actions);
-    const workspace = mountRediffWorkspace(api, _converse, actions);
+    const workspace = mountRediffWorkspace(api, _converse, actions, auth);
     window.rediffConverse = Object.assign(window.rediffConverse || {}, { overlay, workspace });
     return { overlay, workspace };
 };
@@ -434,8 +679,13 @@ if (!window.rediffNewChatPluginLoaded) {
             api.settings.extend({
                 rediff_new_chat_search_url: '/api/users/search',
                 rediff_new_chat_token_url: '/api/oidc/token',
+                rediff_message_search_url: '/api/messages/search',
                 rediff_new_chat_token: null,
                 rediff_stable_roster_order: true,
+                rediff_rewrite_upload_urls: true,
+                rediff_upload_base_url: null,
+                render_media: true,
+                allowed_image_domains: null,
             });
 
             const auth = createRediffAuth(api);
@@ -460,27 +710,37 @@ if (!window.rediffNewChatPluginLoaded) {
 
             defineRediffNewChatModal(api, auth);
             defineRediffGroupsModal(api, auth);
-            syncWorkspaceSurface(api, this._converse, workspaceActions);
+            syncWorkspaceSurface(api, this._converse, workspaceActions, auth);
             installNativeEntryBridge(api, auth);
             installManagedParticipantsHeading(api, this._converse);
+            installUploadURLRewrite(api, this._converse);
+            installImageMessageRendering(api, this._converse);
+            installNativeImageUploadPreview();
             installTenantGuards(api);
             auth.installLoginCapture();
 
             api.listen.on('initialized', () => {
                 installTenantGuards(api);
-                syncWorkspaceSurface(api, this._converse, workspaceActions);
+                syncWorkspaceSurface(api, this._converse, workspaceActions, auth);
                 installManagedParticipantsHeading(api, this._converse);
+                installUploadURLRewrite(api, this._converse);
+                installImageMessageRendering(api, this._converse);
+                installNativeImageUploadPreview();
             });
             api.listen.on('connected', () => {
                 installTenantGuards(api);
                 auth.bootstrapStoredSearchToken();
-                syncWorkspaceSurface(api, this._converse, workspaceActions);
+                syncWorkspaceSurface(api, this._converse, workspaceActions, auth);
                 installManagedParticipantsHeading(api, this._converse);
+                installUploadURLRewrite(api, this._converse);
+                installImageMessageRendering(api, this._converse);
+                installNativeImageUploadPreview();
                 window.setTimeout(() => syncManagedGroupsToSidebar(api, auth), 500);
             });
             api.listen.on('chatBoxesFetched', () => {
-                syncWorkspaceSurface(api, this._converse, workspaceActions);
+                syncWorkspaceSurface(api, this._converse, workspaceActions, auth);
                 installManagedParticipantsHeading(api, this._converse);
+                installNativeImageUploadPreview();
             });
 
             auth.bootstrapStoredSearchToken();

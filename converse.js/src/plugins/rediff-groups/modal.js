@@ -287,6 +287,9 @@ export class RediffGroupsModal extends HTMLElement {
             this.resetForm();
             await this.loadGroups();
             await this.openApprovedRoom(group.muc_jid, group.room_config, true);
+            await this.syncManagedRoom(group.id).catch((error) => {
+                console.warn('Unable to sync created group room', error);
+            });
             await this.syncMucInvites(group.muc_jid, memberJids, 'You were added to this group');
             this.refreshManagedSidebar();
             this.close();
@@ -313,6 +316,9 @@ export class RediffGroupsModal extends HTMLElement {
                     body: JSON.stringify({ member_jid, role: 'member' }),
                 });
             }
+            await this.syncManagedRoom(group.id).catch((error) => {
+                console.warn('Unable to resync group room after adding participants', error);
+            });
             await this.syncMucInvites(group.muc_jid, jids, 'You were added to this group');
             this.participantSelected.clear();
             this.refreshManagedSidebar();
@@ -330,6 +336,9 @@ export class RediffGroupsModal extends HTMLElement {
         try {
             this.setParticipantStatus('Removing participant...');
             await this.fetchJson(`${GROUPS_URL}/${group.id}/members/${encodeURIComponent(jid)}`, { method: 'DELETE' });
+            await this.syncManagedRoom(group.id).catch((error) => {
+                console.warn('Unable to resync group room after removing participant', error);
+            });
             this.refreshManagedSidebar();
             await this.loadParticipantGroup();
             await this.refreshOpenRoom(group.muc_jid);
@@ -361,6 +370,9 @@ export class RediffGroupsModal extends HTMLElement {
             this.setStatus('Opening group...');
             const data = await this.fetchJson(`${GROUPS_URL}/${id}/join`, { method: 'POST', body: '{}' });
             await this.openApprovedRoom(data.muc_jid, data.room_config, false);
+            await this.syncManagedRoom(id).catch((error) => {
+                console.warn('Unable to sync opened group room', error);
+            });
             this.refreshManagedSidebar();
             this.close();
         } catch (error) {
@@ -465,6 +477,11 @@ export class RediffGroupsModal extends HTMLElement {
 
     async syncManagedBookmarks(groups) {
         await Promise.all((groups || []).map((group) => this.syncManagedBookmark(group)));
+    }
+
+    async syncManagedRoom(groupId) {
+        if (!groupId) return null;
+        return this.fetchJson(`${GROUPS_URL}/${groupId}/sync`, { method: 'POST', body: '{}' });
     }
 
     async syncMucInvites(roomOrJid, memberJids, reason) {

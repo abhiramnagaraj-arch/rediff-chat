@@ -35,6 +35,11 @@ def _post_command(command: str, payload: dict[str, Any]) -> Any:
     return data
 
 
+def is_missing_room_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "room doesn't exist" in message or "room doesn't exists" in message or "room not found" in message
+
+
 def set_room_affiliation(muc_jid: str, member_jid: str, affiliation: str) -> bool:
     if not EJABBERD_MUC_SYNC_ENABLED:
         return False
@@ -56,8 +61,7 @@ def remove_room_affiliation(muc_jid: str, member_jid: str) -> bool:
     try:
         return set_room_affiliation(muc_jid, member_jid, "none")
     except Exception as exc:
-        message = str(exc).lower()
-        if "room doesn't exist" in message or "room doesn't exists" in message or "room not found" in message:
+        if is_missing_room_error(exc):
             logger.info("MUC room %s does not exist while removing %s; backend membership will still be removed", muc_jid, member_jid)
             return False
         logger.warning("Unable to remove MUC affiliation for %s in %s: %s", member_jid, muc_jid, exc)
@@ -72,8 +76,7 @@ def get_room_affiliations(muc_jid: str) -> list[dict[str, Any]] | None:
     try:
         data = _post_command("get_room_affiliations", {"room": room, "service": service})
     except Exception as exc:
-        message = str(exc).lower()
-        if "room doesn't exist" in message or "room doesn't exists" in message or "room not found" in message:
+        if is_missing_room_error(exc):
             logger.info("MUC room %s does not exist while reading affiliations", muc_jid)
             return None
         logger.warning("Unable to read MUC affiliations for %s: %s", muc_jid, exc)
