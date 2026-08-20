@@ -81,9 +81,9 @@ def test_xmpp(username, domain, password):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test XMPP Connection and Authentication")
-    parser.add_argument("--user", type=str, default="alice", help="Username")
-    parser.add_argument("--domain", type=str, default="wipro.chat", help="XMPP Domain")
-    parser.add_argument("--password", type=str, default="password123", help="Password")
+    parser.add_argument("--user", type=str, required=True, help="Username")
+    parser.add_argument("--domain", type=str, required=True, help="XMPP Domain")
+    parser.add_argument("--password", type=str, required=True, help="Password")
     args = parser.parse_args()
     
     test_xmpp(args.user, args.domain, args.password)

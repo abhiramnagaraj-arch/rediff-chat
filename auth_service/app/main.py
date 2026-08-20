@@ -1,24 +1,59 @@
-from datetime import datetime, timezone
-import uuid
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 import logging
+import secrets
 
-from . import models, schemas, database, user_service
-from . import keycloak
+from fastapi import FastAPI, HTTPException, status
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-# Setup logging
+from datetime import datetime
+
+from fastapi import Query
+
+from . import database, group_service, keycloak, message_service, schemas, user_service
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Rediff Auth Service")
 bearer_scheme = HTTPBearer(auto_error=False)
+admin_bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def utcnow():
-    return datetime.now(timezone.utc)
+@app.on_event("startup")
+def startup_group_schema() -> None:
+    try:
+        database.init_group_schema()
+        for vhost in keycloak.allowed_vhosts():
+            database.init_archive_schema(database.archive_database_name_for_vhost(vhost))
+    except Exception as exc:
+        logger.warning("Group schema initialization failed: %s", exc)
+
+
+def _admin_token() -> str:
+    import os
+
+    token = os.getenv("AUTH_SERVICE_ADMIN_TOKEN", "").strip()
+    if not token:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Admin API token is not configured")
+    return token
+
+
+def require_admin(credentials: HTTPAuthorizationCredentials | None = Depends(admin_bearer_scheme)) -> None:
+    if not credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required")
+    if not secrets.compare_digest(credentials.credentials, _admin_token()):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid admin token")
+
+
+def _validate_xmpp_identity(username: str, server: str) -> None:
+    if not keycloak.is_allowed_vhost(server):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported XMPP vhost")
+    if not keycloak.validate_xmpp_username(username):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username must be in '<tenant>.<user>' format using lowercase letters, numbers, '.', '_' or '-'",
+        )
+
 
 def _extract_identity_from_claims(claims: dict) -> schemas.OIDCIdentityResponse:
     return schemas.OIDCIdentityResponse(
@@ -29,89 +64,69 @@ def _extract_identity_from_claims(claims: dict) -> schemas.OIDCIdentityResponse:
         claims=claims,
     )
 
+
+def _claim_str(claims: dict, *keys: str) -> str | None:
+    for key in keys:
+        value = claims.get(key)
+        if isinstance(value, list):
+            value = value[0] if value else None
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
 @app.post("/auth")
-def authenticate_user(req: schemas.AuthRequest, db: Session = Depends(database.get_db)):
-    """
-    Authenticate a user. Ejabberd http auth will call this endpoint.
-    """
-    logger.info(f"Auth request for user: {req.user}@{req.server}")
+def authenticate_user(req: schemas.AuthRequest):
+    logger.info("Auth request for user: %s@%s", req.user, req.server)
+    _validate_xmpp_identity(req.user, req.server)
 
-    parts = req.user.split(".")
-    if len(parts) < 2:
-        logger.warning(f"Invalid user format: {req.user}")
-        return schemas.AuthResponse(success=False)
+    expected_username = keycloak.keycloak_username(req.user, req.server)
+    tenant_slug = keycloak.tenant_slug_from_username(req.user)
 
-    tenant_slug = parts[0]
-    username_part = ".".join(parts[1:])
-
-    user = db.query(models.User).join(models.Tenant).filter(
-        models.User.username == username_part,
-        models.Tenant.tenant_slug == tenant_slug,
-        models.Tenant.assigned_vhost == req.server
-    ).first()
-
-    if not user:
-        logger.warning(f"User not found: {req.user}@{req.server}")
-        return schemas.AuthResponse(success=False)
-
-    if user.tenant.status != "ACTIVE":
-        logger.warning(f"Tenant {req.server} is not ACTIVE (status: {user.tenant.status})")
-        return schemas.AuthResponse(success=False)
-
-    if user.status != "ACTIVE":
-        logger.warning(f"User {req.user} is not ACTIVE (status: {user.status})")
-        return schemas.AuthResponse(success=False)
-
-    expected_username = keycloak.keycloak_username(tenant_slug, username_part)
     try:
         claims = keycloak.authenticate_password(username=expected_username, password=req.password)
-        claim_tenant = claims.get("tenant_slug") or claims.get("tenant")
-        claim_user = claims.get("preferred_username") or claims.get("username")
+        claim_user = _claim_str(claims, "preferred_username", "username")
+        claim_tenant = _claim_str(claims, "tenant_slug", "tenant")
+        claim_server = _claim_str(claims, "assigned_vhost")
 
-        if claim_tenant != tenant_slug:
-            logger.warning("Keycloak tenant mismatch for %s: %s != %s", req.user, claim_tenant, tenant_slug)
-            return schemas.AuthResponse(success=False)
-
-        if claim_user != expected_username:
+        if claim_user and claim_user != expected_username:
             logger.warning("Keycloak username mismatch for %s: %s != %s", req.user, claim_user, expected_username)
             return schemas.AuthResponse(success=False)
 
-        logger.info(f"Authentication successful for user: {req.user}@{req.server}")
+        if claim_tenant and claim_tenant != tenant_slug:
+            logger.warning("Keycloak tenant mismatch for %s: %s != %s", req.user, claim_tenant, tenant_slug)
+            return schemas.AuthResponse(success=False)
+
+        if claim_server and claim_server != req.server:
+            logger.warning("Keycloak vhost mismatch for %s: %s != %s", req.user, claim_server, req.server)
+            return schemas.AuthResponse(success=False)
+
         return schemas.AuthResponse(success=True)
     except HTTPException as exc:
         logger.warning("Keycloak auth rejected for %s: %s", req.user, exc.detail)
         return schemas.AuthResponse(success=False)
     except Exception as exc:
-        logger.error("Authentication failed for %s: %s", req.user, exc)
+        logger.error("Authentication failed for %s@%s: %s", req.user, req.server, exc)
         return schemas.AuthResponse(success=False)
+
 
 @app.get("/users/{username}")
-def check_user_exists(username: str, domain: str, db: Session = Depends(database.get_db)):
-    """
-    Check if a user exists.
-    """
-    logger.info(f"Check user request for user: {username}@{domain}")
+def check_user_exists(username: str, domain: str):
+    logger.info("Check user request for user: %s@%s", username, domain)
+    _validate_xmpp_identity(username, domain)
 
-    parts = username.split(".")
-    if len(parts) < 2:
+    expected_username = keycloak.keycloak_username(username, domain)
+    user = keycloak.get_user(expected_username)
+    if not user:
         return schemas.AuthResponse(success=False)
 
-    tenant_slug = parts[0]
-    username_part = ".".join(parts[1:])
+    if user.get("enabled") is not True:
+        return schemas.AuthResponse(success=False)
 
-    user = db.query(models.User).join(models.Tenant).filter(
-        models.User.username == username_part,
-        models.Tenant.tenant_slug == tenant_slug,
-        models.Tenant.assigned_vhost == domain
-    ).first()
-
-    if user and user.status == "ACTIVE":
-        return schemas.AuthResponse(success=True)
-
-    expected_username = keycloak.keycloak_username(tenant_slug, username_part)
-    if keycloak.sync_user_active(expected_username):
-        return schemas.AuthResponse(success=True)
-    return schemas.AuthResponse(success=False)
+    return schemas.AuthResponse(success=True)
 
 
 @app.get("/oidc/me", response_model=schemas.OIDCIdentityResponse)
@@ -128,31 +143,202 @@ def oidc_me(credentials: HTTPAuthorizationCredentials | None = Depends(bearer_sc
         logger.error("OIDC identity extraction failed: %s", exc)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="OIDC identity extraction failed") from exc
 
+
+@app.post("/api/oidc/token", response_model=schemas.OIDCTokenResponse)
+def oidc_token(req: schemas.OIDCTokenRequest):
+    bare_jid = req.jid.split("/", 1)[0].strip().lower()
+    if "@" not in bare_jid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="JID must include a domain")
+
+    username, server = bare_jid.rsplit("@", 1)
+    _validate_xmpp_identity(username, server)
+
+    expected_username = keycloak.keycloak_username(username, server)
+    access_token = keycloak.password_access_token(username=expected_username, password=req.password)
+    return schemas.OIDCTokenResponse(access_token=access_token)
+
+
 @app.post("/users", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
-def create_user(user_in: schemas.UserCreate, db: Session = Depends(database.get_db)):
-    return user_service.create_user_in_db(db, user_in)
+def create_user(user_in: schemas.UserCreate, _: None = Depends(require_admin)):
+    return user_service.create_user_in_keycloak(user_in)
+
 
 @app.patch("/users/{user_id}", response_model=schemas.UserResponse)
-def update_user(user_id: uuid.UUID, user_update: schemas.UserUpdate, db: Session = Depends(database.get_db)):
-    return user_service.update_user_in_db(db, user_id, user_update)
+def update_user(user_id: str, user_update: schemas.UserUpdate, _: None = Depends(require_admin)):
+    return user_service.update_user_in_keycloak(user_id, user_update)
+
 
 @app.patch("/users/{user_id}/password")
-def update_password(user_id: uuid.UUID, pass_update: schemas.PasswordUpdate, db: Session = Depends(database.get_db)):
-    return user_service.update_password_in_db(db, user_id, pass_update)
+def update_password(user_id: str, pass_update: schemas.PasswordUpdate, _: None = Depends(require_admin)):
+    return user_service.update_password_in_keycloak(user_id, pass_update)
+
 
 @app.delete("/users/{user_id}")
-def delete_user(user_id: uuid.UUID, db: Session = Depends(database.get_db)):
-    return user_service.soft_delete_user_in_db(db, user_id)
+def delete_user(user_id: str, _: None = Depends(require_admin)):
+    return user_service.delete_user_in_keycloak(user_id)
+
+
+def _current_tenant_from_claims(claims: dict) -> str:
+    tenant = _claim_str(claims, "tenant_slug", "tenant")
+    if tenant:
+        return tenant
+
+    username = _claim_str(claims, "preferred_username", "username")
+    if username:
+        localpart = username.split("@", 1)[0]
+        return keycloak.tenant_slug_from_username(localpart)
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Tenant claim missing")
+
+
+def _current_vhost_from_claims(claims: dict) -> str:
+    vhost = _claim_str(claims, "assigned_vhost")
+    if vhost:
+        return vhost
+
+    username = _claim_str(claims, "preferred_username", "username")
+    if username and "@" in username:
+        return username.rsplit("@", 1)[1]
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="XMPP vhost claim missing")
+
+
+
+def _current_jid_from_claims(claims: dict) -> str:
+    username = _claim_str(claims, "preferred_username", "username")
+    if username and "@" in username:
+        return username.split("/", 1)[0].strip().lower()
+
+    vhost = _current_vhost_from_claims(claims)
+    if username:
+        return f"{username}@{vhost}".lower()
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current JID claim missing")
+
+
+def current_group_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> group_service.CurrentUser:
+    if not credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required")
+
+    claims = keycloak.verify_access_token(credentials.credentials)
+    return group_service.CurrentUser(
+        jid=_current_jid_from_claims(claims),
+        tenant_slug=_current_tenant_from_claims(claims),
+        vhost=_current_vhost_from_claims(claims),
+    )
+
+
+@app.get("/api/groups", response_model=list[schemas.GroupResponse])
+def list_groups(current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.list_groups(current)
+
+
+@app.post("/api/groups", response_model=schemas.GroupResponse, status_code=status.HTTP_201_CREATED)
+def create_group(req: schemas.GroupCreate, current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.create_group(req, current)
+
+
+@app.get("/api/groups/{group_id}", response_model=schemas.GroupDetailResponse)
+def get_group(group_id: int, current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.get_group(group_id, current)
+
+
+@app.patch("/api/groups/{group_id}", response_model=schemas.GroupResponse)
+def update_group(group_id: int, req: schemas.GroupUpdate, current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.update_group(group_id, req, current)
+
+
+@app.post("/api/groups/{group_id}/join", response_model=schemas.GroupJoinResponse)
+def join_group(group_id: int, current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.join_group(group_id, current)
+
+
+@app.post("/api/groups/{group_id}/members", response_model=schemas.GroupMemberResponse, status_code=status.HTTP_201_CREATED)
+def add_group_member(
+    group_id: int,
+    req: schemas.GroupMemberCreate,
+    current: group_service.CurrentUser = Depends(current_group_user),
+):
+    return group_service.add_member(group_id, req, current)
+
+
+@app.delete("/api/groups/{group_id}/members/{member_jid:path}")
+def remove_group_member(group_id: int, member_jid: str, current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.remove_member(group_id, member_jid, current)
+
+
+@app.post("/api/groups/{group_id}/sync", response_model=schemas.GroupSyncResponse)
+def sync_group_room(group_id: int, current: group_service.CurrentUser = Depends(current_group_user)):
+    return group_service.sync_room_members(group_id, current)
+
 
 @app.get("/health")
-def health_check(db: Session = Depends(database.get_db)):
+def health_check():
     try:
-        db.execute(text("SELECT 1"))
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
+        if not keycloak.enabled():
+            raise RuntimeError("Keycloak is not enabled")
+        import requests
+
+        response = requests.get(keycloak.realm_url(".well-known/openid-configuration"), timeout=5)
+        response.raise_for_status()
+    except Exception as exc:
+        logger.error("Health check failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="database unavailable",
-        )
+            detail="keycloak unavailable",
+        ) from exc
 
-    return {"status": "ok", "database": "ok"}
+    return {"status": "ok", "keycloak": "ok"}
+
+
+
+@app.get("/api/users/search", response_model=list[schemas.UserSearchResult])
+def search_users(q: str, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)):
+    if not credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required")
+
+    claims = keycloak.verify_access_token(credentials.credentials)
+    current_tenant = _current_tenant_from_claims(claims)
+    current_vhost = _current_vhost_from_claims(claims)
+    return keycloak.search_active_users_for_tenant(q, current_tenant, assigned_vhost=current_vhost, limit=20)
+
+
+@app.get("/api/messages/search", response_model=list[schemas.MessageSearchResult])
+def search_messages(
+    q: str,
+    with_jid: str | None = None,
+    start: datetime | None = Query(default=None),
+    end: datetime | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=50),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+):
+    if not credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required")
+
+    claims = keycloak.verify_access_token(credentials.credentials)
+    current_jid = _current_jid_from_claims(claims)
+    current_tenant = _current_tenant_from_claims(claims)
+    current_vhost = _current_vhost_from_claims(claims)
+    try:
+        return message_service.search_messages(
+            current_jid=current_jid,
+            tenant_slug=current_tenant,
+            vhost=current_vhost,
+            q=q,
+            with_jid=with_jid,
+            start=start,
+            end=end,
+            limit=limit,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Message search failed for user=%s tenant=%s vhost=%s q=%r with_jid=%r",
+            current_jid,
+            current_tenant,
+            current_vhost,
+            q,
+            with_jid,
+        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Message search failed") from exc

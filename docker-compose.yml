@@ -6,10 +6,11 @@ services:
     env_file:
       - ./postgres/.env
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - rediff_pg_data:/var/lib/postgresql/data
-      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./postgres/vhost-init:/docker-entrypoint-initdb.d:ro
+      - ./postgres/pg.sql:/pg-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -21,28 +22,31 @@ services:
   rediff_auth_service:
     build:
       context: ./auth_service
-    container_name: rediff_auth_service
-    restart: unless-stopped
     env_file:
       - ./postgres/.env
+    container_name: rediff_auth_service
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: rediff
-      POSTGRES_PASSWORD: secure_password_here_change_me
-      POSTGRES_DB: rediff_chat
-      POSTGRES_HOST: rediff_postgres
-      POSTGRES_PORT: "5432"
       KEYCLOAK_BASE_URL: "http://rediff_keycloak:8080"
       KEYCLOAK_ISSUER_URL: "http://localhost:18080"
       KEYCLOAK_REALM: "rediff"
-      KEYCLOAK_ADMIN_USERNAME: "admin"
-      KEYCLOAK_ADMIN_PASSWORD: "change_me"
+      KEYCLOAK_ADMIN_USERNAME: "${KEYCLOAK_ADMIN_USERNAME:?set in root .env}"
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:?set in root .env}"
       KEYCLOAK_LOGIN_CLIENT_ID: "rediff-web"
       KEYCLOAK_AUDIENCE: "rediff-web"
       KEYCLOAK_ENABLED: "true"
       KEYCLOAK_SYNC_ENABLED: "true"
+      AUTH_SERVICE_ADMIN_TOKEN: "${AUTH_SERVICE_ADMIN_TOKEN:?set in root .env}"
+      ALLOWED_XMPP_VHOSTS: "v1.chat.rediff.com,v2.chat.rediff.com,v3.chat.rediff.com,v4.chat.rediff.com"
+      POSTGRES_HOST: "rediff_postgres"
+      POSTGRES_PORT: "5432"
+      EJABBERD_API_BASE_URL: "http://rediff_ejabberd_a:5280/api"
+      EJABBERD_MUC_SYNC_ENABLED: "true"
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
+      rediff_keycloak:
+        condition: service_started
       rediff_postgres:
         condition: service_healthy
     healthcheck:
@@ -59,12 +63,12 @@ services:
     restart: unless-stopped
     command: ["start-dev", "--import-realm"]
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: "admin"
-      KC_BOOTSTRAP_ADMIN_PASSWORD: "change_me"
-      KEYCLOAK_ADMIN: "admin"
-      KEYCLOAK_ADMIN_PASSWORD: "change_me"
+      KC_BOOTSTRAP_ADMIN_USERNAME: "${KEYCLOAK_ADMIN_USERNAME:?set in root .env}"
+      KC_BOOTSTRAP_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:?set in root .env}"
+      KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN_USERNAME:?set in root .env}"
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:?set in root .env}"
     ports:
-      - "18080:8080"
+      - "127.0.0.1:18080:8080"
     volumes:
       - keycloak_data:/opt/keycloak/data
       - ./keycloak/realm:/opt/keycloak/data/import:ro
@@ -86,6 +90,7 @@ services:
       - ./ejabberd/ejabberd.yml:/home/ejabberd/conf/ejabberd.yml:ro
       - ./certs/server.pem:/home/ejabberd/conf/server.pem:ro
       - ejabberd_data_a:/home/ejabberd/database
+      - ejabberd_upload:/home/ejabberd/upload
     depends_on:
       rediff_auth_service:
         condition: service_healthy
@@ -107,6 +112,7 @@ services:
       - ./ejabberd/ejabberd.yml:/home/ejabberd/conf/ejabberd.yml:ro
       - ./certs/server.pem:/home/ejabberd/conf/server.pem:ro
       - ejabberd_data_b:/home/ejabberd/database
+      - ejabberd_upload:/home/ejabberd/upload
     depends_on:
       - rediff_ejabberd_a
     networks:
@@ -127,6 +133,7 @@ services:
       - ./ejabberd/ejabberd.yml:/home/ejabberd/conf/ejabberd.yml:ro
       - ./certs/server.pem:/home/ejabberd/conf/server.pem:ro
       - ejabberd_data_c:/home/ejabberd/database
+      - ejabberd_upload:/home/ejabberd/upload
     depends_on:
       - rediff_ejabberd_a
     networks:
@@ -149,11 +156,28 @@ services:
     networks:
       - rediff_network
 
+  rediff_converse:
+    image: nginx:1.27-alpine
+    container_name: rediff_converse
+    restart: unless-stopped
+    volumes:
+      - ./converse.js:/usr/share/nginx/html:ro
+      - ./converse.js/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:8081:80"
+      - "127.0.0.1:8082:80"
+    depends_on:
+      - haproxy
+      - rediff_auth_service
+    networks:
+      - rediff_network
+
 volumes:
   rediff_pg_data:
   ejabberd_data_a:
   ejabberd_data_b:
   ejabberd_data_c:
+  ejabberd_upload:
   keycloak_data:
 
 networks:

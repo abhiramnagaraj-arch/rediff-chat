@@ -1,0 +1,161 @@
+import { html } from 'lit';
+import Modal from 'bootstrap/js/src/modal.js';
+import { getOpenPromise } from '@converse/openpromise';
+import { CustomElement } from 'shared/components/element.js';
+import { api, u, Model, log } from '@converse/headless';
+import { modal_close_button } from './templates/buttons.js';
+import tplModal from './templates/modal.js';
+
+import './styles/_modal.scss';
+
+class BaseModal extends CustomElement {
+    /**
+     * @typedef {import('lit').TemplateResult} TemplateResult
+     */
+
+    static get properties() {
+        return {
+            model: { type: Model },
+        };
+    }
+
+    /** @type {Modal} */
+    #modal;
+
+    /**
+     * @param {Object} options
+     */
+    constructor(options) {
+        super();
+        this.model = null;
+        this.state = new Model();
+        this.listenTo(this.state, 'change', () => this.requestUpdate());
+
+        this.className = u.isTestEnv() ? 'modal' : 'modal fade';
+        this.tabIndex = -1;
+        this.ariaHidden = 'true';
+
+        this.onKeyDown = /** @param {KeyboardEvent} ev */ (ev) => {
+            if (ev.key === 'Escape' && this.ariaHidden === 'false') {
+                this.close();
+            }
+        };
+
+        this.initialized = getOpenPromise();
+
+        // Allow properties to be set via passed in options
+        Object.assign(this, options);
+        setTimeout(() => this.insertIntoDOM());
+
+        this.addEventListener('shown.bs.modal', () => {
+            this.ariaHidden = 'false';
+        });
+        this.addEventListener('hidden.bs.modal', () => {
+            this.ariaHidden = 'true';
+            api.modal.remove(this.nodeName.toLowerCase());
+        });
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        window.addEventListener('keydown', this.onKeyDown);
+    }
+
+    disconnectedCallback() {
+        window.removeEventListener('resize', this.onKeyDown);
+        super.disconnectedCallback();
+    }
+
+    get modal() {
+        if (!this.#modal) {
+            this.#modal = new Modal(this, {
+                backdrop: u.isTestEnv() ? false : true,
+                keyboard: true,
+            });
+        }
+        return this.#modal;
+    }
+
+    initialize() {
+        this.requestUpdate();
+        this.initialized.resolve();
+    }
+
+    /**
+     * @returns {TemplateResult|string}
+     */
+    renderModal() {
+        return '';
+    }
+
+    /**
+     * @returns {TemplateResult|string}
+     */
+    renderModalFooter() {
+        return html`<div class="modal-footer">${modal_close_button}</div>`;
+    }
+
+    render() {
+        return tplModal(this);
+    }
+
+    /**
+     * @returns {string|TemplateResult}
+     */
+    getModalTitle() {
+        // Intended to be overwritten
+        return '';
+    }
+
+    /**
+     * @param {Event} [ev]
+     */
+    switchTab(ev) {
+        ev?.stopPropagation();
+        ev?.preventDefault();
+        this.tab = /** @type {HTMLElement} */ (ev.target).getAttribute('data-name');
+        this.requestUpdate();
+    }
+
+    close() {
+        this.modal.hide();
+    }
+
+    insertIntoDOM() {
+        const container_el = document.querySelector('#converse-modals');
+        if (!container_el) {
+            // The #converse-modals container is part of the root view, so it's
+            // absent only when Converse hasn't rendered yet or has been torn down
+            // (e.g. between tests). insertIntoDOM is deferred via setTimeout, so it
+            // can fire after teardown; bail out instead of throwing.
+            log.debug('BaseModal.insertIntoDOM: #converse-modals not found, skipping insertion');
+            return;
+        }
+        container_el.insertAdjacentElement('beforeend', this);
+    }
+
+    /**
+     * @param {string|null} [message]
+     * @param {'info'|'primary'|'secondary'|'danger'} type
+     * @param {boolean} [is_ephemeral=true]
+     */
+    alert(message, type = 'primary', is_ephemeral = true) {
+        this.state.set('alert', { message, type });
+        if (is_ephemeral) {
+            if (this.alertTimeout) {
+                clearTimeout(this.alertTimeout);
+            }
+            this.alertTimeout = setTimeout(() => {
+                this.state.set('alert', undefined);
+            }, 5000);
+        }
+    }
+
+    async show() {
+        await this.initialized;
+        this.modal.show();
+        this.requestUpdate();
+    }
+}
+
+export default BaseModal;

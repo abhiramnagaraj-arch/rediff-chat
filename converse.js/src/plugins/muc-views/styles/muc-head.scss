@@ -1,0 +1,81 @@
+.conversejs {
+    converse-muc.chatroom {
+        .chat-head-chatroom {
+            color: var(--muc-header-fg-color);
+            background-color: var(--muc-header-bg-color);
+            border-bottom: 0.15em solid var(--muc-color);
+
+            converse-controlbox-navback {
+                .fa-arrow-left {
+                    svg {
+                        fill: var(--muc-header-fg-color);
+                    }
+                }
+            }
+
+            .chat-head__desc {
+                color: var(--muc-header-fg-color);
+                display: block;
+                a {
+                    color: var(--link-color);
+                }
+                &:hover {
+                    button {
+                        display: inline-block;
+                    }
+                }
+            }
+
+            .chatbox-title {
+                .btn--transparent {
+                    i {
+                        color: var(--muc-header-fg-color);
+                    }
+                }
+                .chatbox-title__text--bookmarked {
+                    margin-inline-start: 0.5em;
+                }
+            }
+
+            a, a:visited, a:hover, a:not([href]):not([tabindex]) {
+                &.chatbox-btn {
+                    &.fa {
+                        color: var(--muc-header-fg-color);
+                        &.button-on:before {
+                            color: var(--muc-header-fg-color);
+                        }
+                    }
+                }
+            }
+
+            converse-dropdown {
+                .dropdown-menu {
+                    converse-icon {
+                        svg {
+                            fill: var(--muc-color);
+                        }
+                    }
+                }
+            }
+
+            .chatbox-btn {
+                converse-icon {
+                    svg {
+                        fill: var(--muc-header-fg-color);
+                    }
+                }
+            }
+            .chatbox-title__text {
+                color: var(--muc-header-fg-color);
+                display: block;
+                font-weight: normal;
+                margin: auto 0;
+                padding-inline-end: 0;
+                white-space: nowrap;
+                .chatroom-jid {
+                    font-size: var(--font-size-small);
+                }
+            }
+        }
+    }
+}

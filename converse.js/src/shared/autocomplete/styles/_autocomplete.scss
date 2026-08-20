@@ -1,0 +1,146 @@
+.conversejs {
+    [hidden] { display: none; }
+
+    .visually-hidden {
+        position: absolute;
+        clip: rect(0, 0, 0, 0);
+    }
+
+    .form-group {
+        .suggestion-box {
+            width: 100%;
+        }
+    }
+
+    .suggestion-box {
+        position: relative;
+        mark {
+            background: var(--completion-light-color);
+        }
+
+        > input {
+            display: block;
+        }
+
+        .suggestion-box__results,
+        > ul {
+            &:before {
+                content: "";
+                position: absolute;
+                top: -.43em;
+                left: 1em;
+                width: 0; height: 0;
+                padding: .4em;
+                background: var(--background-color);
+                border: inherit;
+                border-inline-end: 0;
+                border-bottom: 0;
+                -webkit-transform: rotate(45deg);
+                transform: rotate(45deg);
+                z-index: -1;
+            }
+            border-radius: .3em;
+            border: 0.15em solid var(--secondary-color);
+            box-shadow: .05em .2em .6em rgba(0,0,0,.1);
+            box-sizing: border-box;
+            left: 0;
+            list-style: none;
+            margin: .2em 0 0;
+            min-width: 100%;
+            padding: 0;
+            position: absolute;
+            right: 0;
+            text-shadow: none;
+            z-index: 2;
+
+            > li {
+                background: var(--background-color);
+                color: var(--text-color);
+                cursor: pointer;
+                display: block;
+                overflow-x: hidden;
+                padding: 1em;
+                position: relative;
+                text-align: left;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                &:hover {
+                    mark {
+                        background-color: unset;
+                        color: var(--converse-highlight-color);
+                    }
+                }
+                mark {
+                    padding: 0;
+                }
+            }
+        }
+        .suggestion-box__results--below {
+            top: 3em;
+        }
+        .suggestion-box__results--above {
+            bottom: 4.5em;
+            &:before {
+                display: none;
+            }
+            &:after {
+                z-index: -1;
+                content: "";
+                position: absolute;
+                bottom: -0.43em;
+                left: 1em;
+                width: 0;
+                height: 0;
+                padding: 0.4em;
+                background: var(--background-color);
+                border: inherit;
+                border-inline-start: 0;
+                border-top: 0;
+                -webkit-transform: rotate(45deg);
+                transform: rotate(45deg);
+            }
+        }
+    }
+
+    .suggestion-box > ul[hidden],
+    .suggestion-box > ul:empty {
+        display: none;
+    }
+
+    @supports (transform: scale(0)) {
+        .suggestion-box > ul {
+            transition: .3s cubic-bezier(.4,.2,.5,1.4);
+            transform-origin: 1.43em -.43em;
+        }
+
+        .suggestion-box > ul[hidden],
+        .suggestion-box > ul:empty {
+            opacity: 0;
+            transform: scale(0);
+            display: block;
+            transition-timing-function: ease;
+        }
+    }
+
+    .suggestion-box > ul > li[aria-selected="true"] {
+        background: var(--highlight-color);
+        color: var(--foreground-color);
+    }
+
+    .suggestion-box li:hover mark {
+        background: var(--secondary-color-hover);
+        color: var(--link-color);
+    }
+}
+
+.conversejs.converse-fullscreen {
+    .suggestion-box__results--above {
+        bottom: 4.5em;
+    }
+}
+
+.conversejs.converse-overlayed {
+    .suggestion-box__results--above {
+        bottom: 3.5em;
+    }
+}

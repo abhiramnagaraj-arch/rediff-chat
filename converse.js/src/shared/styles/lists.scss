@@ -1,0 +1,128 @@
+.conversejs {
+    @import "bootstrap/scss/list-group";
+
+    .list-group-item {
+        &.active {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color-hover);
+        }
+        background-color: var(--background-color);
+    }
+
+    .list-container {
+        text-align: start;
+        padding: 0.3em 0;
+
+        .list-toggle {
+            font-family: var(--heading-font);
+            font-weight: var(--list-toggle-font-weight);
+            display: block;
+            color: var(--secondary-color);
+            padding: 0 0 0.5rem 0;
+        }
+    }
+
+    .items-list {
+        padding-inline-end: 0;
+        padding-inline-start: 0;
+        text-align: start;
+
+        .list-item {
+            border: none;
+            clear: both;
+            color: var(--text-color);
+            padding: 0.5em;
+            word-wrap: break-word;
+
+            &.unread-msgs {
+                font-weight: bold;
+            }
+
+            &:hover {
+                .list-item-link {
+                    color: var(--foreground-color) !important;
+                }
+            }
+
+            .list-item-link {
+                &:hover {
+                    color: var(--foreground-color) !important;
+                }
+                color: var(--foreground-color);
+                margin: auto;
+                font-size: var(--font-size);
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                vertical-align: baseline;
+            }
+
+            .list-item-badge {
+                opacity: 1;
+                border-radius: 25%;
+                color: var(--background-color);
+                font-size: var(--font-size-small);
+                line-height: var(--font-size-small);
+            }
+
+            .list-item-action {
+                opacity: 0;
+                font-size: var(--font-size-tiny);
+                padding: 0.3em 0 0 0;
+                margin: 0 0 0 var(--inline-action-margin);
+                width: 2em;
+                height: 2em;
+                &:before {
+                    font-size: var(--font-size);
+                }
+                &.button-on {
+                    color: var(--foreground-color);
+                    &:hover {
+                        color: var(--link-color-hover);
+                    }
+                }
+                color: var(--secondary-color);
+                &:hover {
+                    color: var(--secondary-color);
+                    opacity: 1;
+                }
+                &:focus {
+                    opacity: 1;
+                }
+            }
+
+            .list-item-action--visible {
+                opacity: 1 !important;
+            }
+
+            &.open {
+                background-color: var(--highlight-color);
+                &:hover {
+                    background-color: var(--highlight-color-hover);
+                    .list-item-link {
+                        color: var(--foreground-color);
+                    }
+                }
+                a {
+                    color: var(--foreground-color);
+                }
+                .list-item-action {
+                    color: var(--secondary-color);
+                    &:hover {
+                        color: var(--primary-color);
+                    }
+                }
+            }
+
+            &:hover {
+                background-color: var(--highlight-color-hover);
+                .list-item-action {
+                    opacity: 1;
+                }
+                .fa, .far, .fas {
+                    opacity: 1;
+                }
+            }
+        }
+    }
+}

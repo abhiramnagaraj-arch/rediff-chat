@@ -1,0 +1,118 @@
+.conversejs {
+    .btn--small {
+        font-size: 80%;
+        font-weight: normal;
+    }
+
+    form {
+        .form-check {
+            .form-check-input {
+                margin-top: 0;
+            }
+        }
+
+        .invalid-feedback {
+            display: block;
+        }
+
+        .form-instructions {
+            color: var(--text-color);
+            margin-bottom: 1em;
+        }
+
+        .hidden-username {
+            opacity: 0 !important;
+            height: 0 !important;
+            padding: 0 !important;
+        }
+
+        .error-feedback {
+            margin-bottom: 0.5em;
+        }
+
+        .form-control[readonly] {
+            color: var(--disabled-color);
+        }
+
+        .form-control {
+            color: var(--text-color);
+            background-color: var(--background-color);
+            &:focus {
+                color: var(--text-color);
+                background-color: var(--background-color);
+            }
+            &::placeholder {
+                color: var(--secondary-color);
+            }
+        }
+
+        .form-control--labeled {
+            margin-top: 0.5em;
+        }
+
+        .btn-group {
+            .clear-input {
+                cursor: pointer;
+                font-size: var(--font-size);
+                margin-top: 0.4em;
+                position: absolute;
+                right: 0.2em;
+            }
+        }
+
+        &.converse-form {
+            padding: 1.2rem;
+
+            legend {
+                color: var(--text-color);
+                font-size: 125%;
+                margin-bottom: 1.5em;
+            }
+
+            fieldset {
+                margin-bottom: 1.5em;
+            }
+
+            select,
+            input[type=password],
+            input[type=number],
+            input[type=text] {
+                min-width: 50%;
+            }
+
+            input.is_invalid,
+            input.error {
+                color: var(--text-color);
+                border-color: var(--error-color);
+            }
+
+            .text-muted {
+                color: var(--subdued-color) !important;
+                font-size: 85%;
+                a {
+                    color: var(--link-color);
+                }
+                &.error {
+                    color: var(--error-color);
+                }
+            }
+        }
+
+        &.converse-form--modal {
+            padding-bottom: 0;
+        }
+
+        &.converse-form--spinner {
+            height: 100%;
+        }
+
+        &.converse-centered-form {
+            min-height: 66%;
+            text-align: center;
+            input {
+                max-width: 30em;
+                margin: auto;
+            }
+        }
+    }
+}

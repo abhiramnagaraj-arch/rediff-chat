@@ -1,0 +1,165 @@
+.conversejs {
+
+    #controlbox {
+        .open-contacts-toggle, .open-contacts-toggle .fa {
+            color: var(--chat-color) !important;
+            &:hover {
+                color: var(--chat-color) !important;
+            }
+        }
+
+        .open-contacts-toggle {
+            white-space: nowrap;
+            converse-icon {
+                margin-inline-start: 0.25em;
+                padding-bottom: 0.1em;
+            }
+        }
+
+    }
+
+    #converse-roster {
+        text-align: start;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+
+        converse-dropdown {
+            converse-icon {
+                svg {
+                    fill: var(--chat-color) !important;
+                }
+            }
+        }
+
+        .roster-contacts {
+            padding: 0;
+            margin: 0 0 0.2em 0;
+            color: var(--text-color);
+            display: contents;
+
+            .roster-group-contacts {
+                .list-item {
+                    height: 2.5em;
+                    &:hover {
+                        .list-item-action {
+                            opacity: 1;
+                        }
+                    }
+                }
+            }
+
+            converse-roster-contact {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                display: flex;
+                justify-content: space-between;
+
+                .open-chat {
+                    width: 100%;
+                }
+
+                .contact-actions {
+                    .dropdown-item {
+                        converse-icon {
+                            margin-inline-end: 0.5em;
+                        }
+                    }
+                    .list-item-action {
+                        line-height: 2em;
+                    }
+                    &:hover {
+                        .list-item-action {
+                            opacity: 1;
+                        }
+                    }
+                    converse-icon {
+                        svg {
+                            fill: var(--chat-color) !important;
+                        }
+                    }
+                }
+            }
+
+            .group-toggle {
+                font-family: var(--heading-font);
+                display: block;
+                width: 100%;
+                margin: 0.75em 0 0.25em 0;
+            }
+
+            .group-toggle, .group-toggle .fa {
+                color: var(--chat-color) !important;
+                &:hover {
+                    color: var(--chat-color-hover) !important;
+                }
+            }
+
+            .list-item {
+
+                .list-item-link {
+                    margin: 0;
+                }
+
+                &.requesting-xmpp-contact {
+                    a {
+                        line-height: var(--line-height);
+                    }
+                }
+
+                .open-chat {
+                    converse-icon.chat-status {
+                        position: relative;
+                        border: 2px solid var(--background-color);
+                        svg {
+                            display: flex;
+                        }
+                    }
+
+                    &.unread-msgs {
+                        font-weight: bold;
+                        color: var(--info-color);
+                        .contact-name {
+                            width: 70%;
+                        }
+                    }
+
+                    .contact-name {
+                        max-width: 85%;
+                        float: none;
+                        height: 100%;
+                        &.unread-msgs {
+                            max-width: 60%;
+                        }
+                        &.contact-name--offline {
+                            margin-inline-start: 0.25em;
+                        }
+                    }
+                }
+                &.odd {
+                    background-color: #DCEAC5;
+                    /* Make this difference */
+                }
+                a, span {
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+                }
+                .span {
+                    display: inline-block;
+                }
+                &:hover {
+                    background-color: var(--highlight-color-hover);
+                }
+            }
+        }
+        span {
+            &.pending-contact-name {
+                line-height: var(--line-height);
+                width: 100%;
+            }
+        }
+    }
+}

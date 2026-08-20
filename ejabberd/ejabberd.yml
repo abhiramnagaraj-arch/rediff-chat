@@ -37,6 +37,10 @@ host_config:
 auth_method: [external]
 extauth_program: "python3 /home/ejabberd/conf/extauth.py"
 auth_use_cache: false
+cluster_nodes:
+  - "ejabberd@rediff_ejabberd_a"
+  - "ejabberd@rediff_ejabberd_b"
+  - "ejabberd@rediff_ejabberd_c"
 fqdn: "v1.chat.rediff.com"
 
 loglevel: 4
@@ -62,6 +66,14 @@ api_permissions:
       - acl: admin
     what:
       - "*"
+  "rediff auth muc sync":
+    from:
+      - mod_http_api
+    who:
+      ip: 172.16.0.0/12
+    what:
+      - set_room_affiliation
+      - get_room_affiliations
 
 listen:
   - port: 5222
@@ -77,6 +89,7 @@ listen:
       /admin: ejabberd_web_admin
       /api: mod_http_api
       /bosh: mod_bosh
+      /upload: mod_http_upload
       /ws: ejabberd_http_ws
 
   - port: 5444
@@ -104,8 +117,11 @@ modules:
 
   mod_muc:
     host: "conference.@HOST@"
+    db_type: sql
     default_room_options:
       persistent: true
+
+  mod_muc_admin: {}
 
   mod_mam:
     db_type: sql
@@ -115,6 +131,6 @@ modules:
   mod_http_upload:
     host: "upload.@HOST@"
     docroot: "/home/ejabberd/upload"
-    put_url: "http://@HOST@:5444/upload"
+    put_url: "http://@HOST@:5280/upload"
     max_size: 52428800
     access: local

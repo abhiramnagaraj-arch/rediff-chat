@@ -1,0 +1,156 @@
+$prefix: 'converse-';
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "bootstrap/scss/mixins";
+
+.conversejs {
+    &.fullscreen {
+        .modal {
+            @include media-breakpoint-up(sm) {
+                --converse-modal-width: 75vw;
+            }
+            @include media-breakpoint-up(lg) {
+                --converse-modal-width: 50vw;
+            }
+            @include media-breakpoint-up(xl) {
+                --converse-modal-width: 30vw;
+            }
+        }
+        .modal-dialog {
+            @include media-breakpoint-up(sm) {
+                margin-top: 5vh;
+            }
+            @include media-breakpoint-up(xl) {
+                margin-top: 10vh;
+            }
+        }
+    }
+
+    .modal-header {
+        background-color: var(--primary-color);
+        border-bottom: none;
+        display: flex;
+        justify-content: space-between;
+        &.alert-danger {
+            background-color: var(--error-color);
+        }
+        .modal-title {
+            line-break: anywhere;
+            color: var(--background-color);
+            a {
+                color: var(--background-color);
+            }
+        }
+        .btn {
+            --converse-btn-close-bg: none;
+            margin: 0;
+            padding: 0;
+            font-size: 1em;
+            svg {
+                fill: var(--background-color);
+            }
+        }
+        .close {
+            color: var(--background-color);
+        }
+    }
+
+    .modal-content {
+        background-color: var(--background-color);
+    }
+
+    .modal-body {
+        .row {
+            margin-inline-start: 0;
+            margin-inline-end: 0;
+        }
+    }
+
+    .occupant-details {
+        li {
+            margin-bottom: 1em;
+        }
+    }
+
+    #converse-modals {
+        .modal {
+            .nav-item {
+                margin: 0.25em;
+                .nav-link {
+                    &.active {
+                        color: var(--background-color);
+                    }
+                }
+                &:hover {
+                    .nav-link {
+                        color: var(--focus-color);
+                        background-color: var(--background-color);
+                        &.active {
+                            color: var(--background-color);
+                            background-color: var(--primary-color);
+                        }
+                    }
+                }
+            }
+
+            .modal-content {
+                box-shadow: var(--raised-el-shadow);
+            }
+
+            .modal-body {
+                overflow-y: auto;
+                max-height: 75vh;
+                margin-bottom: 2em;
+                p {
+                    padding: 0.25rem 0;
+                    line-height: 1.5em;
+                    &.form-help {
+                        padding: 0;
+                        margin-bottom: 0.5em;
+                    }
+                }
+                .confirm {
+                    .form-group {
+                        p:first-child {
+                            font-size: 110%;
+                            font-weight: bold;
+                        }
+                    }
+                }
+                &.fit-content {
+                    box-sizing: content-box;
+
+                    img {
+                        max-width: 90vw;
+                    }
+                }
+            }
+            .modal-footer {
+                justify-content: flex-start;
+            }
+            .roomid-policy-error {
+                color: var(--error-color);
+                font-size: var(--font-size-small);
+                float: right;
+            }
+        }
+
+        .scrollable-container {
+            max-height: 45vh;
+            overflow-y: auto;
+        }
+
+        .set-xmpp-status {
+            margin: 1em;
+        }
+
+        #omemo-tabpanel {
+            margin-top: 1em;
+        }
+
+        .btn {
+            font-weight: normal;
+        }
+
+    }
+}

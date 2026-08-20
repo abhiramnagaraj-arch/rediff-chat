@@ -1,0 +1,74 @@
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "bootstrap/scss/mixins";
+@import "shared/styles/_variables.scss";
+
+.conversejs {
+    .chatbox {
+        .bottom-panel {
+
+            .chat-content-sendbutton {
+                height: calc(100% - (var(--chat-textarea-height) + var(--send-button-height) + 2 * var(--send-button-margin)));
+            }
+
+            .chat-message-form {
+                border-top: 0.25em solid var(--chat-color);
+                border-right: 0 !important;
+                border-bottom: 0;
+                border-inline-start: 0;
+                border-inline-end: 0.25em solid var(--chat-color);
+                border-bottom-radius: var(--chatbox-border-radius);
+                background-clip: padding-box;
+                background-color: var(--background-color);
+                margin: 0;
+                padding: 0;
+                @media screen and (max-height: $mobile-landscape-height) {
+                    width: 100%;
+                }
+                @media screen and (max-width: $mobile-portrait-length) {
+                    width: 100%;
+                }
+
+                .suggestion-box__results {
+                    &:after {
+                        display: none;
+                    }
+                }
+
+                .spoiler-hint {
+                    width: 100%;
+                    color: var(--foreground-color);
+                    background-color: var(--background-color);
+                }
+
+                .chat-textarea, input {
+                    outline: 1px solid var(--background-color);
+                    &:active, &:focus{
+                        outline-width: 2px;
+                    }
+                    &.correcting {
+                        background-color: var(--chat-correcting-color);
+                    }
+                }
+
+                .chat-textarea {
+                    color: var(--foreground-color);
+                    background-color: var(--background-color);
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    border-bottom-radius: var(--chatbox-border-radius);
+                    field-sizing: content;
+                    padding: 0.5em;
+                    width: 100%;
+                    border: none;
+                    min-height: var(--chat-textarea-height);
+                    margin-bottom: -4px; // Not clear why this is necessary :(
+                    resize: none;
+                    &.spoiler {
+                        height: 42px;
+                    }
+                }
+            }
+        }
+    }
+}

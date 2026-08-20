@@ -1,0 +1,46 @@
+<!doctype html>
+<html class="no-js" lang="en">
+    <head>
+        <title>Converse</title>
+        <meta charset="utf-8" />
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="Converse XMPP/Jabber Chat" />
+        <meta name="author" content="JC Brand" />
+        <meta name="keywords" content="xmpp chat webchat converse.js" />
+        <link rel="shortcut icon" type="image/ico" href="./dist/images/favicon.ico" />
+        <link rel="manifest" href="./manifest.json" />
+        <link type="text/css" rel="stylesheet" media="screen" href="./dist/converse.min.css" />
+        <script type="module" src="./dist/converse.js"></script>
+    </head>
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "Converse",
+            "description": "Open source XMPP chat client for the web",
+            "url": "https://conversejs.org",
+            "applicationCategory": "CommunicationApplication",
+            "operatingSystem": "Web Browser"
+        }
+    </script>
+    <body class="converse-fullscreen">
+        <noscript>You need to enable JavaScript to run the Converse.js chat app.</noscript>
+        <div id="conversejs-bg"></div>
+        <!-- Settings for converse.initialize(); bosh_service_url is a public test connection manager only. -->
+        <script type="application/json" id="converse-config">
+        {
+            "theme": "dracula",
+            "authentication": "login",
+            "auto_away": 300,
+            "auto_reconnect": true,
+            "bosh_service_url": "https://conversejs.org/http-bind/",
+            "message_archiving": "always",
+            "view_mode": "fullscreen",
+            "show_background": true
+        }
+        </script>
+        <script type="module" src="./init.js"></script>
+    </body>
+</html>

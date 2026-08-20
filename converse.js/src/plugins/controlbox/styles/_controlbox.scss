@@ -1,0 +1,357 @@
+@import 'bootstrap/scss/functions';
+@import 'bootstrap/scss/variables';
+@import 'bootstrap/scss/mixins';
+@import 'shared/styles/_variables.scss';
+@import 'shared/styles/_mixins.scss';
+
+.conversejs {
+    .room-info {
+        font-size: var(--font-size-small);
+        font-style: normal;
+        font-weight: normal;
+
+        li.room-info {
+            display: block;
+            margin-inline-start: 5px;
+        }
+        p.room-info {
+            line-height: var(--line-height);
+            margin: 0;
+            display: block;
+            white-space: normal;
+        }
+    }
+    div.room-info {
+        padding: 0.3em 0;
+        clear: left;
+        width: 100%;
+    }
+
+    #controlbox {
+        order: -1;
+        color: var(--foreground-color);
+
+        .chat-status--avatar {
+            border: 1px solid var(--background-color);
+            background: var(--background-color);
+        }
+
+        converse-brand-logo {
+            width: 100%;
+            display: block;
+        }
+
+        converse-brand-heading {
+            width: 100%;
+            display: block;
+        }
+
+        .brand-name-wrapper {
+            font-size: 200%;
+            padding-inline-end: 0.5em;
+        }
+
+        .brand-name-wrapper--fullscreen {
+            font-size: 100%;
+        }
+
+        .box-flyout {
+            background-color: var(--background-color);
+        }
+
+        &.logged-out {
+            .box-flyout {
+                .controlbox-pane {
+                    overflow-y: auto;
+                    padding-top: 0;
+                }
+            }
+        }
+
+        form.search-xmpp-contact {
+            margin: 0;
+            padding-inline-start: 5px;
+            padding: 0 0 5px 5px;
+            input {
+                width: 8em;
+            }
+        }
+
+        .msgs-indicator {
+            margin-inline-end: 0.5em;
+        }
+
+        a.subscribe-to-user {
+            padding-inline-start: 2em;
+            font-weight: bold;
+        }
+
+        #chatrooms {
+            padding: 0;
+
+            .add-chatroom {
+                input[type='button'],
+                input[type='submit'],
+                input[type='text'] {
+                    width: 100%;
+                }
+                margin: 0;
+                padding: 0;
+            }
+        }
+
+        .controlbox-section {
+            .controlbox-heading {
+                font-family: var(--heading-font);
+                color: var(--controlbox-heading-color);
+                font-weight: bold;
+                padding: 0;
+                font-size: 1.1em;
+                line-height: 1.1em;
+                text-transform: uppercase;
+            }
+
+            .controlbox-heading--groupchats {
+                color: var(--muc-color);
+            }
+
+            .controlbox-heading--contacts {
+                color: var(--background-color);
+            }
+
+            .controlbox-heading--headline {
+                color: var(--headlines-head-color);
+            }
+        }
+
+        .controlbox-padded {
+            padding: 0 1em;
+            align-items: center;
+            line-height: normal;
+        }
+
+        .controlbox-pane {
+            border: 0;
+            font-size: var(--font-size);
+            height: 100%;
+            left: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
+            padding: 1em 0;
+            text-align: start;
+
+            .add-converse-contact {
+                margin: 0 0 0.75em 0;
+            }
+
+            .chatbox-btn {
+                margin: 0;
+            }
+        }
+
+        .add-xmpp-contact {
+            padding: 1em 0.5em;
+            input {
+                margin: 0 0 1rem;
+                width: 100%;
+            }
+            button {
+                width: 100%;
+            }
+        }
+    }
+}
+
+.conversejs {
+    converse-chats {
+        &.converse-overlayed {
+            display: flex;
+            flex-direction: row-reverse;
+            .flyout {
+                border: 0;
+            }
+
+            .toggle-controlbox {
+                background-color: var(--controlbox-color);
+                color: var(--button-text-color);
+                float: right;
+                margin: 0 var(--overlayed-chat-gutter);
+                order: -2;
+                text-align: center;
+            }
+
+            #controlbox {
+                order: -1;
+                min-width: var(--controlbox-width) !important;
+                width: var(--controlbox-width);
+
+                .box-flyout {
+                    min-width: var(--controlbox-width) !important;
+                    width: var(--controlbox-width);
+                }
+            }
+
+            .brand-heading {
+                padding-inline-start: 1em;
+                width: 100%;
+            }
+
+            .converse-svg-logo {
+                margin-right: 0.1em;
+                height: 1em;
+            }
+        }
+
+        &.converse-embedded,
+        &.converse-fullscreen {
+            .toggle-controlbox {
+                display: none;
+            }
+
+            #controlbox {
+                margin: 0;
+
+                @include make-col-ready();
+
+                @include media-breakpoint-up(md) {
+                    @include make-col(4);
+                }
+                @include media-breakpoint-up(lg) {
+                    @include make-col(3);
+                }
+                @include media-breakpoint-up(xl) {
+                    @include make-col(2);
+                }
+
+                &.logged-out {
+                    @include make-col(12);
+                    @include fade-in;
+                    width: 100%;
+                    .box-flyout {
+                        width: 100%;
+                    }
+                }
+
+                .flyout {
+                    border-inline-end: 0.1rem solid var(--controlbox-color);
+                    border-radius: 0;
+                    width: 100%;
+                    z-index: auto;
+                }
+
+                .converse-svg-logo {
+                    margin-top: 0.1em;
+                    height: 1.8em;
+                }
+
+                converse-brand-logo {
+                    margin-top: 2em;
+                    margin-bottom: 0;
+                    @include make-col(12);
+                    @include media-breakpoint-up(xl) {
+                        margin-top: 5em;
+                        margin-bottom: 1em;
+                    }
+                    .brand-heading {
+                        width: 100%;
+                        font-size: 500%;
+                        padding: 0.7em 0 0 0;
+                        opacity: 0.8;
+                        color: var(--brand-heading-color);
+                    }
+                    .brand-subtitle {
+                        font-size: 90%;
+                        padding: 0.5em;
+                    }
+                    @media screen and (max-width: $mobile-portrait-length) {
+                        .brand-heading {
+                            font-size: 300%;
+                        }
+                    }
+                }
+            }
+        }
+
+        &.converse-fullscreen {
+            #controlbox {
+                @media screen and (max-width: $mobile-portrait-length) {
+                    margin-inline-start: 0;
+                }
+                @include media-breakpoint-down(sm) {
+                    margin-inline-start: 0;
+                }
+                .box-flyout {
+                    @include media-breakpoint-up(md) {
+                        @include make-col(4);
+                    }
+                    @include media-breakpoint-up(lg) {
+                        @include make-col(3);
+                    }
+                    @include media-breakpoint-up(xl) {
+                        @include make-col(2);
+                    }
+                }
+            }
+            .controlbox-pane {
+                height: 100%;
+                padding-top: 2em;
+                padding-bottom: 1em;
+            }
+        }
+    }
+}
+
+@include media-breakpoint-down(md) {
+    .conversejs {
+        &.converse-fullscreen,
+        &.converse-overlayed {
+            left: 0;
+            right: 0;
+            padding-inline-start: env(safe-area-inset-left);
+            padding-inline-end: env(safe-area-inset-right);
+
+            .converse-chatboxes {
+                margin: 0 !important;
+                flex-direction: row !important;
+                justify-content: space-between;
+
+                .converse-chatroom {
+                    font-size: 14px;
+                }
+
+                .chatbox {
+                    .box-flyout {
+                        left: 0;
+                        bottom: 0;
+                        border-radius: 0;
+                        width: 100vw !important;
+                        height: var(--fullpage-chat-height);
+                    }
+                }
+
+                #controlbox {
+                    margin-inline-start: 0;
+                    width: 100vw !important;
+                    .box-flyout {
+                        width: 100vw !important;
+                        height: var(--fullpage-chat-height);
+                    }
+                    .sidebar {
+                        display: block;
+                    }
+                }
+
+                &.sidebar-open {
+                    .chatbox:not(#controlbox) {
+                        display: none;
+                    }
+                    #controlbox {
+                        .controlbox-pane {
+                            display: block;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

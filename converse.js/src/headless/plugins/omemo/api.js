@@ -1,0 +1,144 @@
+import { initStorage } from '../../utils/storage.js';
+import _converse from '../../shared/_converse.js';
+import api from '../../shared/api/index.js';
+import converse from '../../shared/api/public.js';
+import MUC from '../../plugins/muc/muc.js';
+import OMEMOStore from './store.js';
+import { generateFingerprint, getDeviceList, getEncryptedElements, handleMessageSendError } from './utils.js';
+
+const { Strophe, stx, u } = converse.env;
+
+export default {
+    /**
+     * The "omemo" namespace groups methods relevant to OMEMO
+     * encryption.
+     *
+     * @namespace _converse.api.omemo
+     * @memberOf _converse.api
+     */
+    omemo: {
+        /**
+         * Returns the device ID of the current device.
+         */
+        async getDeviceID() {
+            await api.waitUntil('OMEMOInitialized');
+            return _converse.state.omemo_store.get('device_id');
+        },
+
+        /**
+         * Encrypt and send a message to `chat` for every OMEMO version its
+         * recipients support, without persisting a Message model. This is the
+         * encrypted counterpart of a raw `api.send`.
+         *
+         * On failure (e.g. no reachable devices, or a presence/server error) a
+         * user-facing alert is shown and the error is re-thrown — the same way an
+         * encrypted chat-message send fails — so callers can roll back any
+         * optimistic state. Awaits the encryption; resolves once the stanza is
+         * handed to `api.send`.
+         *
+         * @method _converse.api.omemo.send
+         * @param {import('../../shared/chatbox.js').default} chat
+         * @param {string} plaintext - the message body (may be empty)
+         * @param {import('strophe.js').Builder[]} [extensions] - encrypted SCE `<content>` children
+         */
+        async send(chat, plaintext, extensions = []) {
+            try {
+                const { elements, eme_ns } = await getEncryptedElements(chat, plaintext || null, extensions);
+
+                // `from` is our own full JID (the server stamps/overwrites it
+                // regardless); the authenticated identity is the SCE `<from>`
+                // affix set during encryption.
+                const stanza = stx`<message xmlns="jabber:client"
+                        from="${_converse.session.get('jid')}"
+                        to="${chat.get('jid')}"
+                        type="${chat instanceof MUC ? 'groupchat' : 'chat'}"
+                        id="${u.getUniqueId()}">
+                    ${elements}
+                    <encryption xmlns="${Strophe.NS.EME}" namespace="${eme_ns}"/>
+                    <store xmlns="${Strophe.NS.HINTS}"/>
+                </message>`;
+                api.send(stanza);
+            } catch (e) {
+                handleMessageSendError(e, chat); // surfaces a user-facing alert and re-throws
+            }
+        },
+
+        session: {
+            async restore() {
+                const { state } = _converse;
+                if (state.omemo_store === undefined) {
+                    const { state } = _converse;
+                    const bare_jid = _converse.session.get('bare_jid');
+                    const id = `converse.omemosession-${bare_jid}`;
+                    state.omemo_store = new OMEMOStore({ id });
+                    initStorage(state.omemo_store, id);
+                }
+                await state.omemo_store.fetchSession();
+            },
+        },
+
+        /**
+         * The "devicelists" namespace groups methods related to OMEMO device lists
+         *
+         * @namespace _converse.api.omemo.devicelists
+         * @memberOf _converse.api.omemo
+         */
+        devicelists: {
+            /**
+             * Returns the {@link DeviceList} for a particular JID.
+             * The device list will be created if it doesn't exist already.
+             * @method _converse.api.omemo.devicelists.get
+             * @param {String} jid - The Jabber ID for which the device list will be returned.
+             * @param {boolean} [create=false] - Set to `true` if the device list
+             *      should be created if it cannot be found.
+             * @param {import('./types').OMEMOVersion} [version] - The OMEMO version.
+             *      Defaults to the legacy version.
+             */
+            async get(jid, create = false, version = Strophe.NS.OMEMO) {
+                return await getDeviceList(jid, create, version);
+            },
+        },
+
+        /**
+         * The "bundle" namespace groups methods relevant to the user's OMEMO bundle.
+         * @namespace _converse.api.omemo.bundle
+         * @memberOf _converse.api.omemo
+         */
+        bundle: {
+            /**
+             * Lets you generate a new OMEMO device bundle
+             *
+             * @method _converse.api.omemo.bundle.generate
+             * @returns {promise} Promise which resolves once we have a result from the server.
+             */
+            async generate() {
+                await api.waitUntil('OMEMOInitialized');
+                // Remove current device
+                const bare_jid = _converse.session.get('bare_jid');
+                const devicelist = await api.omemo.devicelists.get(bare_jid);
+
+                const { omemo_store } = _converse.state;
+                const device_id = omemo_store.get('device_id');
+                if (device_id) {
+                    const device = devicelist.devices.get(device_id);
+                    omemo_store.unset(device_id);
+                    if (device) {
+                        await new Promise((done) => device.destroy({ 'success': done, 'error': done }));
+                    }
+                    devicelist.devices.trigger('remove');
+                }
+
+                // Generate new device bundle and publish
+                // We'll need to create new sessions (i.e. send out new PreKeyWhisperMessage) when sending messages
+                // See: https://xmpp.org/extensions/attic/xep-0384-0.3.0.html#usecases-announcing
+                await omemo_store.generateBundle();
+                await omemo_store.removeAllSessions();
+                await omemo_store.publishBundle();
+                await devicelist.publishDevices();
+
+                const device = devicelist.devices.get(omemo_store.get('device_id'));
+                return generateFingerprint(device);
+            },
+        },
+    },
+};

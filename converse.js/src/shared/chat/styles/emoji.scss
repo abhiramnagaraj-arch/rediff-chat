@@ -1,0 +1,265 @@
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+@import "bootstrap/scss/mixins";
+
+.conversejs {
+
+    .chatbox,
+    converse-reaction-picker {
+        img.emoji {
+            height: 1.2em;
+            width: 1.2em;
+            margin: 0 .05em 0 .1em;
+            vertical-align: -0.1em;
+        }
+
+        .chat-message-form {
+            .toggle-smiley {
+                a.toggle-smiley {
+                    padding: 0;
+                }
+            }
+        }
+
+        converse-emoji-dropdown {
+            display: inline-block;
+            .dropdown-menu {
+                padding: 0;
+                width: auto !important;
+            }
+        }
+
+        converse-emoji-picker {
+            width: 100%;
+            padding-top: 0;
+            padding-bottom: 0;
+            background-color: var(--background-color);
+            overflow-y: hidden;
+
+            converse-emoji-picker-content {
+                width: 100%;
+                .emoji-picker__lists {
+                    background-color: var(--background-color);
+                    display: flex;
+                    flex-direction: column;
+                    height: 8em;
+                    overflow-y: auto;
+                    width: 100%;
+                    .emoji-category__heading {
+                        clear: both;
+                        color: var(--secondary-color);
+                        cursor: auto;
+                        display: block;
+                        font-size: var(--font-size);
+                        margin: 0;
+                        padding: 0.75em 0 0 0.5em;
+                    }
+
+                    .emoji-lists__container {
+                        background-color: var(--background-color);
+                        overflow-x: hidden;
+                    }
+
+                    .emoji-picker {
+                        li {
+                            float: left;
+                        }
+                    }
+                }
+            }
+            .emoji-skintone-picker {
+                display: flex;
+                margin-top: 0.3em;
+                padding: 0.5em 0 0.5em 0.5em;
+                color: var(--secondary-color);
+                background-color: var(--background-color);
+                width: 100%;
+                font-size: var(--font-size);
+                box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+                ul {
+                    display: flex;
+                    flex-direction: row;
+                    flex-wrap: nowrap;
+                    padding-inline-start: 0;
+                    li {
+                        padding: 0 0.25em;
+                    }
+                }
+            }
+            .emoji-picker {
+                background-color: var(--background-color);
+                padding: 0.5em 0 0 0.5em;
+                &:last-child {
+                    padding-bottom: 0.5em;
+                }
+                li {
+                    display: inline-block;
+                    height: calc(var(--font-size-huge) * 1.5);
+                    width: calc(var(--font-size-huge) * 1.5);
+                    overflow: hidden;
+                    margin-inline-start: 0;
+                    list-style: none;
+                    position: relative;
+                    &.insert-emoji {
+                        text-align: center;
+                        &.selected a {
+                            background-color: var(--secondary-color);
+                        }
+                        img {
+                            margin: 0 auto;
+                            height: var(--font-size-huge);
+                            width: var(--font-size-huge);
+                            display: inline-block;
+                            vertical-align: baseline;
+                        }
+                        a {
+                            display: inline-block;
+                            font-size: var(--font-size-huge);
+                            line-height: calc(var(--font-size-huge) * 1.5);
+                            height: calc(var(--font-size-huge) * 1.5);
+                            width: calc(var(--font-size-huge) * 1.5);
+                            overflow: hidden;
+                            &:hover {
+                                background-color: var(--secondary-color);
+                            }
+                        }
+                    }
+                }
+            }
+
+            .emoji-picker__header {
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                margin: 0.4em 0;
+                background-color: var(--background-color);
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                .emoji-search {
+                    width: auto;
+                    margin: 1em 0.25em 0.5em;
+                    height: 2em;
+                    font-size: var(--font-size-small);
+                }
+                ul {
+                    display: flex;
+                    flex-direction: row;
+                    padding-inline-start: 0;
+
+                    .emoji-category {
+                        padding: 0.1em 0;
+                        font-size: var(--font-size-huge);
+                        &.picked a {
+                            background-color: var(--heading-color);
+                        }
+                        &.selected a, &:hover a {
+                            background-color: var(--secondary-color);
+                        }
+                        a {
+                            padding: 0.25em;
+                            display: inline-block;
+                        }
+                        img {
+                            height: var(--font-size-huge);
+                            width: var(--font-size-huge);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    .chatroom {
+        converse-emoji-picker {
+            background-color: var(--background-color);
+            .emoji-skintone-picker {
+                background-color: var(--background-color);
+            }
+            .emoji-picker__header {
+                background-color: var(--background-color);
+            }
+        }
+    }
+}
+
+.conversejs {
+    converse-chats {
+        &.converse-overlayed  {
+            converse-emoji-dropdown {
+                .dropdown-menu {
+                    min-width: 18em;
+                }
+            }
+            .chatbox {
+                .emoji-picker__header {
+                    .emoji-category {
+                        img {
+                            height: var(--font-size) !important;
+                            width: var(--font-size) !important;
+                        }
+                    }
+                }
+                converse-emoji-picker {
+                    .emoji-picker {
+                        .insert-emoji {
+                            a {
+                                font-size: var(--font-size);
+                                line-height: calc(var(--font-size) * 1.5);
+                                padding: 0;
+                                height: calc(var(--font-size) * 1.5);
+                                width: calc(var(--font-size) * 1.5);
+                            }
+                            img {
+                                height: var(--font-size);
+                                width: var(--font-size);
+                            }
+                        }
+                    }
+                    .emoji-skintone-picker {
+                        font-size: var(--font-size-small);
+                    }
+                    .emoji-picker__header {
+                        .emoji-category {
+                            font-size: var(--font-size-small);
+                        }
+                    }
+                    .emoji-picker__lists {
+                        height: 7em;
+                    }
+                }
+            }
+        }
+
+        &.converse-embedded {
+            converse-emoji-dropdown {
+                .dropdown-menu {
+                    min-width: 20em;
+                }
+            }
+        }
+
+        &.converse-fullscreen {
+            .chatbox {
+                converse-emoji-dropdown {
+                    .dropdown-menu {
+                        min-width: 12em;
+                    }
+                    converse-emoji-picker {
+                        .emoji-picker__lists {
+                            height: 12em;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@include media-breakpoint-up(m) {
+    .conversejs {
+        .chatbox {
+            converse-emoji-picker {
+                max-width: 40em;
+            }
+        }
+    }
+}

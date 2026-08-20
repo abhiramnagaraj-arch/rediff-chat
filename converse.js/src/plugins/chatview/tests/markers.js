@@ -1,0 +1,195 @@
+import mock from '../../../shared/tests/mock.js';
+import converse from '../../../../dist/converse.js';
+
+// See: https://xmpp.org/rfcs/rfc3921.html
+const { Strophe, u, stx } = converse.env;
+
+describe('A XEP-0333 Chat Marker', function () {
+    it(
+        'marks outgoing direct messages so displayed receipts can come back',
+        mock.initConverse(converse, ['chatBoxesFetched'], {}, async function (_converse) {
+            const { api } = _converse;
+            await mock.waitForRoster(_converse, 'current', 1);
+            const contact_jid = mock.cur_names[0].replace(/ /g, '.').toLowerCase() + '@montague.lit';
+            await mock.openChatBoxFor(_converse, contact_jid);
+            const view = _converse.chatboxviews.get(contact_jid);
+            const textarea = view.querySelector('textarea.chat-textarea');
+            const sent_stanzas = [];
+
+            spyOn(api.connection.get(), 'send').and.callFake((stanza) => sent_stanzas.push(stanza));
+
+            textarea.value = 'Please confirm receipt';
+            const message_form = view.querySelector('converse-message-form');
+            message_form.onKeyDown({
+                target: textarea,
+                preventDefault: function preventDefault() {},
+                key: 'Enter',
+            });
+
+            const getSentMessage = () =>
+                sent_stanzas
+                .map((s) => (u.isElement(s) ? s : s.nodeTree))
+                .filter((s) => s.nodeName === 'message')
+                .find((msg) => msg.querySelector('body')?.textContent?.trim() === 'Please confirm receipt');
+
+            await u.waitUntil(() => !!getSentMessage());
+            const sent_message = getSentMessage();
+
+            expect(sent_message).toBeDefined();
+            expect(sent_message.querySelector('markable[xmlns="urn:xmpp:chat-markers:0"]')).toBeTruthy();
+            expect(sent_message.querySelector('request[xmlns="urn:xmpp:receipts"]')).toBeTruthy();
+        }),
+    );
+
+    it(
+        'is sent when a markable message is received from a roster contact',
+        mock.initConverse(converse, [], {}, async function (_converse) {
+            await mock.waitForRoster(_converse, 'current', 1);
+            const contact_jid = mock.cur_names[0].replace(/ /g, '.').toLowerCase() + '@montague.lit';
+            await mock.openChatBoxFor(_converse, contact_jid);
+            const msgid = u.getUniqueId();
+            const stanza = u.toStanza(`
+            <message from='${contact_jid}'
+                id='${msgid}'
+                type="chat"
+                to='${_converse.jid}'>
+              <body>My lord, dispatch; read o'er these articles.</body>
+              <markable xmlns='urn:xmpp:chat-markers:0'/>
+            </message>`);
+
+            const sent_stanzas = [];
+            spyOn(_converse.api.connection.get(), 'send').and.callFake((s) => sent_stanzas.push(s?.nodeTree ?? s));
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+            await u.waitUntil(() => sent_stanzas.length === 2);
+            expect(sent_stanzas[0])
+                .toEqualStanza(stx`<message from="romeo@montague.lit/orchard" id="${sent_stanzas[0].getAttribute('id')}" to="${contact_jid}" type="chat" xmlns="jabber:client">
+                <received id="${msgid}" xmlns="urn:xmpp:chat-markers:0"/>
+            </message>`);
+        }),
+    );
+
+    it(
+        'is not sent when a markable message is received from someone not on the roster',
+        mock.initConverse(converse, [], { allow_non_roster_messaging: true }, async function (_converse) {
+            await mock.waitForRoster(_converse, 'current', 0);
+            await mock.waitUntilBlocklistInitialized(_converse);
+            const contact_jid = 'someone@montague.lit';
+            const msgid = u.getUniqueId();
+            const stanza = stx`
+            <message
+                xmlns="jabber:client"
+                from='${contact_jid}'
+                id='${msgid}'
+                type="chat"
+                to='${_converse.jid}'>
+              <body>My lord, dispatch; read o'er these articles.</body>
+              <markable xmlns='urn:xmpp:chat-markers:0'/>
+            </message>`;
+
+            const sent_stanzas = [];
+            spyOn(_converse.api.connection.get(), 'send').and.callFake((s) => sent_stanzas.push(s));
+            await _converse.handleMessageStanza(stanza);
+
+            const getMessages = () => sent_stanzas.map((s) => s?.nodeTree ?? s).filter((e) => e.nodeName === 'message');
+            await u.waitUntil(() => getMessages().length === 2);
+            const sent_messages = getMessages();
+            expect(sent_messages[0]).toEqualStanza(stx`
+            <message id="${sent_messages[0].getAttribute('id')}" to="${contact_jid}" type="chat" xmlns="jabber:client">
+                <active xmlns="http://jabber.org/protocol/chatstates"/>
+                <no-store xmlns="urn:xmpp:hints"/>
+                <no-permanent-store xmlns="urn:xmpp:hints"/>
+            </message>`);
+
+            expect(sent_messages[1]).toEqualStanza(stx`
+            <message xmlns="jabber:client"
+                    from="romeo@montague.lit/orchard"
+                    id="${sent_messages[1].getAttribute('id')}"
+                    to="someone@montague.lit" type="chat">
+                <displayed xmlns="urn:xmpp:chat-markers:0" id="${sent_messages[1].querySelector('displayed')?.getAttribute('id')}"/>
+            </message>`);
+        }),
+    );
+
+    it(
+        'marks my sent message as read when a displayed marker is received',
+        mock.initConverse(converse, ['chatBoxesFetched'], {}, async function (_converse) {
+            await mock.waitForRoster(_converse, 'current', 1);
+            const contact_jid = mock.cur_names[0].replace(/ /g, '.').toLowerCase() + '@montague.lit';
+            await mock.openChatBoxFor(_converse, contact_jid);
+            const view = _converse.chatboxviews.get(contact_jid);
+            const textarea = view.querySelector('textarea.chat-textarea');
+            textarea.value = 'But soft, what light through yonder airlock breaks?';
+            const message_form = view.querySelector('converse-message-form');
+            message_form.onKeyDown({
+                target: textarea,
+                preventDefault: function preventDefault() {},
+                key: 'Enter',
+            });
+            const chatbox = _converse.chatboxes.get(contact_jid);
+            await new Promise((resolve) => view.model.messages.once('rendered', resolve));
+
+            const msg_obj = chatbox.messages.models[0];
+            const msg_id = msg_obj.get('msgid');
+            const marker = stx`
+                <message from="${contact_jid}"
+                         to="${_converse.jid}"
+                         type="chat"
+                         xmlns="jabber:client">
+                    <displayed xmlns="urn:xmpp:chat-markers:0" id="${msg_id}"/>
+                </message>`;
+
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, marker));
+            await u.waitUntil(() => !!msg_obj.get('marker_displayed'));
+
+            expect(msg_obj.get('marker_displayed')).toEqual(jasmine.any(String));
+            expect(view.querySelectorAll('.chat-msg__receipt-group--read').length).toBe(1);
+        }),
+    );
+
+    it(
+        "is ignored if it's a carbon copy of one that I sent from a different client",
+        mock.initConverse(converse, [], {}, async function (_converse) {
+            await mock.waitForRoster(_converse, 'current', 1);
+            await mock.waitUntilDiscoConfirmed(_converse, _converse.bare_jid, [], [Strophe.NS.SID]);
+
+            const contact_jid = mock.cur_names[0].replace(/ /g, '.').toLowerCase() + '@montague.lit';
+            await mock.openChatBoxFor(_converse, contact_jid);
+            const view = _converse.chatboxviews.get(contact_jid);
+
+            let stanza = u.toStanza(`
+            <message xmlns="jabber:client"
+                     to="${_converse.bare_jid}"
+                     type="chat"
+                     id="2e972ea0-0050-44b7-a830-f6638a2595b3"
+                     from="${contact_jid}">
+                <body>😊</body>
+                <markable xmlns="urn:xmpp:chat-markers:0"/>
+                <origin-id xmlns="urn:xmpp:sid:0" id="2e972ea0-0050-44b7-a830-f6638a2595b3"/>
+                <stanza-id xmlns="urn:xmpp:sid:0" id="IxVDLJ0RYbWcWvqC" by="${_converse.bare_jid}"/>
+            </message>`);
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+            await u.waitUntil(() => view.querySelectorAll('.chat-msg__text').length);
+            expect(view.querySelectorAll('.chat-msg').length).toBe(1);
+            expect(view.model.messages.length).toBe(1);
+
+            stanza = u.toStanza(
+                `<message xmlns="jabber:client" to="${_converse.bare_jid}" type="chat" from="${contact_jid}">
+                <sent xmlns="urn:xmpp:carbons:2">
+                    <forwarded xmlns="urn:xmpp:forward:0">
+                        <message xmlns="jabber:client" to="${contact_jid}" type="chat" from="${_converse.bare_jid}/other-resource">
+                            <received xmlns="urn:xmpp:chat-markers:0" id="2e972ea0-0050-44b7-a830-f6638a2595b3"/>
+                            <store xmlns="urn:xmpp:hints"/>
+                            <stanza-id xmlns="urn:xmpp:sid:0" id="F4TC6CvHwzqRbeHb" by="${_converse.bare_jid}"/>
+                        </message>
+                    </forwarded>
+                </sent>
+            </message>`,
+            );
+            spyOn(_converse.api, 'trigger').and.callThrough();
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+            await u.waitUntil(() => _converse.api.trigger.calls.count(), 500);
+            expect(view.querySelectorAll('.chat-msg').length).toBe(1);
+            expect(view.model.messages.length).toBe(1);
+        }),
+    );
+});

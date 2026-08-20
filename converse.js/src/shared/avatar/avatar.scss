@@ -1,0 +1,25 @@
+converse-avatar {
+    border: 0;
+    background: transparent;
+
+    &.avatar-muc {
+        margin-inline-end: 0.5em;
+    }
+
+    &.modal-avatar {
+        display: flex;
+        margin-bottom: 1em;
+    }
+
+    .avatar {
+        border-radius: var(--avatar-border-radius);
+    }
+
+
+    .avatar-initials {
+        color: white;
+        border-radius: var(--avatar-border-radius);
+        text-align: center;
+        display: inline-block;
+    }
+}

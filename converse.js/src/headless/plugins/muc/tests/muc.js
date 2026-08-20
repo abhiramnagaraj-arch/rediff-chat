@@ -1,0 +1,227 @@
+import mock from '../../../tests/mock.js';
+import converse from '../../../dist/converse-headless.js';
+
+const { Strophe, sizzle, stx, u } = converse.env;
+
+describe('Groupchats', function () {
+    it(
+        'keeps track of unread messages and mentions',
+        mock.initConverse(converse, ['chatBoxesFetched'], {}, async function (_converse) {
+            const nick = 'romeo';
+            const muc_jid = 'lounge@montague.lit';
+            // Open a hidden room
+            await mock.openAndEnterMUC(_converse, muc_jid, nick, [], [], false, { 'hidden': true });
+            const model = _converse.chatboxes.get(muc_jid);
+
+            _converse.api.connection.get()._dataRecv(
+                mock.createRequest(
+                    _converse,
+                    stx`
+            <message xmlns="jabber:client"
+                        type="groupchat"
+                        id="1"
+                        to="${_converse.jid}"
+                        xml:lang="en"
+                        from="${muc_jid}/juliet">
+                <body>Romeo oh romeo</body>
+            </message>`,
+                ),
+            );
+            await u.waitUntil(() => model.messages.length);
+            expect(model.get('num_unread_general')).toBe(1);
+            expect(model.get('num_unread')).toBe(1);
+
+            _converse.api.connection.get()._dataRecv(
+                mock.createRequest(
+                    _converse,
+                    stx`
+                    <message xmlns="jabber:client"
+                            type="groupchat"
+                            id="2"
+                            to="${_converse.jid}"
+                            xml:lang="en"
+                            from="${muc_jid}/juliet">
+                        <body>Wherefore art though?</body>
+                    </message>`,
+                ),
+            );
+
+            await u.waitUntil(() => model.messages.length === 2);
+
+            expect(model.get('num_unread_general')).toBe(2);
+            expect(model.get('num_unread')).toBe(1);
+
+            // Check that unread counters are cleared when chat becomes visible
+            model.set('hidden', false);
+            await u.waitUntil(() => model.get('num_unread_general') === 0);
+            expect(model.get('num_unread')).toBe(0);
+        }),
+    );
+
+    describe('A groupchat', function () {
+        it(
+            'sends the user status when joining and when it changes',
+            mock.initConverse(converse, ['statusInitialized'], {}, async function (_converse) {
+                const { profile } = _converse.state;
+                const muc_jid = 'coven@chat.shakespeare.lit';
+                profile.set('show', 'away');
+
+                const sent_stanzas = _converse.api.connection.get().sent_stanzas;
+                while (sent_stanzas.length) sent_stanzas.pop();
+
+                const muc = await mock.openAndEnterMUC(_converse, muc_jid, 'romeo');
+
+                let pres = await u.waitUntil(() => sent_stanzas.filter((s) => s.nodeName === 'presence').pop());
+                expect(pres).toEqualStanza(stx`
+                <presence from="${_converse.jid}" id="${pres.getAttribute('id')}" to="${muc_jid}/romeo" xmlns="jabber:client">
+                    <x xmlns="http://jabber.org/protocol/muc"><history maxstanzas="0"/></x>
+                    <show>away</show>
+                    <c hash="sha-1" node="https://conversejs.org" ver="VQN2NgsmAtNozeP6nd9JHH3MIuE=" xmlns="http://jabber.org/protocol/caps"/>
+                </presence>`);
+
+                expect(muc.getOwnOccupant().get('show')).toBe('away');
+
+                while (sent_stanzas.length) sent_stanzas.pop();
+
+                profile.set('show', 'xa');
+                pres = await u.waitUntil(() =>
+                    sent_stanzas
+                        .filter((s) => s.nodeName === 'presence' && s.getAttribute('to') === `${muc_jid}/romeo`)
+                        .pop(),
+                );
+
+                expect(pres).toEqualStanza(stx`
+                <presence to="${muc_jid}/romeo" xmlns="jabber:client">
+                    <show>xa</show>
+                    <priority>0</priority>
+                    <x xmlns="vcard-temp:x:update"/>
+                    <c hash="sha-1" node="https://conversejs.org" ver="VQN2NgsmAtNozeP6nd9JHH3MIuE=" xmlns="http://jabber.org/protocol/caps"/>
+                </presence>`);
+
+                profile.set({ show: 'dnd', status_message: 'Do not disturb' });
+                while (sent_stanzas.length) sent_stanzas.pop();
+
+                const muc2_jid = 'cave@chat.shakespeare.lit';
+                const muc2 = await mock.openAndEnterMUC(_converse, muc2_jid, 'romeo');
+
+                pres = await u.waitUntil(() => sent_stanzas.filter((s) => s.nodeName === 'presence').pop());
+                expect(pres).toEqualStanza(stx`
+                <presence from="${_converse.jid}" id="${pres.getAttribute('id')}" to="${muc2_jid}/romeo" xmlns="jabber:client">
+                    <x xmlns="http://jabber.org/protocol/muc"><history maxstanzas="0"/></x>
+                    <show>dnd</show>
+                    <status>Do not disturb</status>
+                    <c hash="sha-1" node="https://conversejs.org" ver="VQN2NgsmAtNozeP6nd9JHH3MIuE=" xmlns="http://jabber.org/protocol/caps"/>
+                </presence>`);
+
+                expect(muc2.getOwnOccupant().get('show')).toBe('dnd');
+            }),
+        );
+
+        it(
+            'reconnects when no-acceptable error is returned when sending a message',
+            mock.initConverse(converse, [], {}, async function (_converse) {
+                const muc_jid = 'coven@chat.shakespeare.lit';
+                await mock.openAndEnterMUC(_converse, muc_jid, 'romeo');
+                const model = _converse.chatboxes.get(muc_jid);
+                expect(model.session.get('connection_status')).toBe(converse.ROOMSTATUS.ENTERED);
+                model.sendMessage({ 'body': 'hello world' });
+
+                const stanza = stx`
+                <message xmlns='jabber:client'
+                         from='${muc_jid}'
+                         type='error'
+                         to='${_converse.bare_jid}'>
+                    <error type='cancel'>
+                        <not-acceptable xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/>
+                    </error>
+                </message>`;
+                _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+
+                let sent_stanzas = _converse.api.connection.get().sent_stanzas;
+                const iq = await u.waitUntil(() =>
+                    sent_stanzas.filter((s) => sizzle(`[xmlns="${Strophe.NS.PING}"]`, s).length).pop(),
+                );
+                expect(iq).toEqualStanza(
+                    stx`<iq id="${iq.getAttribute('id')}" to="coven@chat.shakespeare.lit/romeo" type="get" xmlns="jabber:client">
+                            <ping xmlns="urn:xmpp:ping"/>
+                        </iq>`,
+                );
+
+                const result = stx`
+                <iq from='${muc_jid}'
+                    id='${iq.getAttribute('id')}'
+                    to='${_converse.bare_jid}'
+                    xmlns="jabber:server"
+                    type='error'>
+                <error type='cancel'>
+                    <not-acceptable xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/>
+                </error>
+                </iq>`;
+                sent_stanzas = _converse.api.connection.get().sent_stanzas;
+                const index = sent_stanzas.length - 1;
+
+                _converse.api.connection.get().IQ_stanzas = [];
+                _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, result));
+                await mock.waitForMUCDiscoInfo(_converse, muc_jid);
+
+                const pres = await u.waitUntil(() =>
+                    sent_stanzas
+                        .slice(index)
+                        .filter((s) => s.nodeName === 'presence')
+                        .pop(),
+                );
+                expect(pres).toEqualStanza(stx`
+                <presence from="${_converse.jid}" id="${pres.getAttribute('id')}" to="coven@chat.shakespeare.lit/romeo" xmlns="jabber:client">
+                    <x xmlns="http://jabber.org/protocol/muc"><history maxstanzas="0"/></x>
+                    <c hash="sha-1" node="https://conversejs.org" ver="VQN2NgsmAtNozeP6nd9JHH3MIuE=" xmlns="http://jabber.org/protocol/caps"/>
+                </presence>`);
+            }),
+        );
+
+        it(
+            'ignores connection attempts when already connected',
+            mock.initConverse(converse, [], {}, async function (_converse) {
+                const { api } = _converse;
+                const muc_jid = 'coven@chat.shakespeare.lit';
+                await mock.openAndEnterMUC(_converse, muc_jid, 'romeo');
+                const model = _converse.chatboxes.get(muc_jid);
+
+                expect(api.rooms.get(model.muc_jid)).not.toBeNull();
+
+                spyOn(_converse.exports, 'onDirectMUCInvitation').and.callThrough();
+                spyOn(api, 'hook').and.callThrough();
+                const apiRoomsGet = api.rooms.get;
+                spyOn(api.rooms, 'get').and.callFake(function () {
+                    return apiRoomsGet(...arguments);
+                });
+
+                expect(model.session.get('connection_status')).toBe(converse.ROOMSTATUS.ENTERED);
+
+                const stanza = stx`
+                <message to='${_converse.bare_jid}' xmlns='jabber:client'>
+                    <result queryid='25822713-35d2-4582-829a-90c3df793191' xmlns='urn:xmpp:mam:2'
+                        id='019c63cc-b024-74fd-a4ae-49620c17e05d'>
+                        <forwarded xmlns='urn:xmpp:forward:0'>
+                            <delay xmlns='urn:xmpp:delay' stamp='2026-02-16T00:14:44.772090Z' />
+                            <message to='${_converse.bare_jid}' id='test'
+                                from='${_converse.bare_jid}' xmlns='jabber:client'
+                                xml:lang='en'>
+                                <x jid='${muc_jid}' xmlns='jabber:x:conference' />
+                            </message>
+                        </forwarded>
+                    </result>
+                </message>`;
+                api.connection.get()._dataRecv(mock.createRequest(_converse, stanza));
+                await api.waitUntil(() => _converse.exports.onDirectMUCInvitation.calls.count());
+                expect(_converse.exports.onDirectMUCInvitation).toHaveBeenCalledTimes(1);
+                await _converse.exports.onDirectMUCInvitation.calls.all()[0].returnValue;
+                const hook_calls = api.hook.calls.all();
+                const rooms_get_calls = api.rooms.get.calls.all();
+                expect(
+                    hook_calls.filter((e) => e.args[0] == 'confirmDirectMUCInvitation' && e.args[1].jid == muc_jid),
+                ).toHaveSize(0);
+                expect(rooms_get_calls.filter((e) => e.args[0] == muc_jid)).toHaveSize(1);
+            }),
+        );
+    });
+});

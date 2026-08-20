@@ -25,7 +25,7 @@ sequenceDiagram
     Ejabberd->>ExtAuth: Sends via STDIN: [auth:w.10001:chat.rediff.com:password]
     
     Note over ExtAuth, AuthAPI: 3. HTTP Verification Request
-    ExtAuth->>AuthAPI: POST /auth HTTP/1.1<br/>{username: "w.10001", domain: "chat.rediff.com"}
+    ExtAuth->>AuthAPI: POST /auth HTTP/1.1<br/>{username: "t1.u1", domain: "v1.chat.rediff.com"}
 
     AuthAPI->>PG: Lookup tenant/user metadata and status
     PG-->>AuthAPI: Returns tenant mapping and active flags
@@ -61,7 +61,7 @@ sequenceDiagram
     participant NodeB as Ejabberd Node B
     participant Bob as Bob (w.10002)<br/>Connected to Node B
 
-    Alice->>NodeA: <message to='w.10002@chat.rediff.com'>Hello!</message>
+    Alice->>NodeA: <message to='t1.u2@v1.chat.rediff.com'>Hello!</message>
     
     Note over NodeA: 1. Security Enforcement
     NodeA->>NodeA: Check Tenant Prefix: 'w' == 'w'? YES. Proceed.
@@ -142,5 +142,5 @@ flowchart TD
     Hash --> Insert1[(Postgres: INSERT INTO users)]
     Insert1 --> Insert2[(Postgres: INSERT INTO user_auth)]
     
-    Insert2 --> Success([Return 201 Created: inf.12055@chat.rediff.com])
+    Insert2 --> Success([Return 201 Created: t1.u1@v1.chat.rediff.com])
 ```

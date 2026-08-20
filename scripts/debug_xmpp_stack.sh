@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -u
 
-COMPOSE_FILE="${COMPOSE_FILE:-ejabberd/docker-compose.yml}"
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 AUTH_SERVICE_URL="${AUTH_SERVICE_URL:-http://localhost:8000}"
-EJABBERD_CONTAINER="${EJABBERD_CONTAINER:-rediff_ejabberd}"
+EJABBERD_CONTAINER="${EJABBERD_CONTAINER:-rediff_ejabberd_a}"
 AUTH_CONTAINER="${AUTH_CONTAINER:-rediff_auth_service}"
 POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-rediff_postgres}"
-USER_NAME="${USER_NAME:-alice}"
+USER_NAME="${USER_NAME:-t1.u1}"
 PASSWORD="${PASSWORD:-password123}"
-HOST_NAME="${HOST_NAME:-localhost}"
+HOST_NAME="${HOST_NAME:-v1.chat.rediff.com}"
 
 pass_count=0
 fail_count=0
@@ -121,8 +121,8 @@ else
 fi
 
 section "PostgreSQL Seed Check"
-if run_cmd docker exec "$POSTGRES_CONTAINER" psql -U rediff -d rediff_chat -c \
-  "select u.username, u.status, ua.account_locked, ua.failed_attempts, (ua.password_hash = crypt('$PASSWORD', ua.password_hash)) as password_matches from users u join user_auth ua on ua.user_id = u.id where u.username = '$USER_NAME';"
+if run_cmd docker exec "$POSTGRES_CONTAINER" psql -U rediff -d rediff_v1_db -c \
+  "select username, subscription, nick from rosterusers limit 5;"
 then
   ok "PostgreSQL query executed"
 else
@@ -141,9 +141,9 @@ import sys
 
 script = "ejabberd/extauth.py"
 tests = [
-    ("auth", f"auth:alice:localhost:password123"),
-    ("auth_wrong", f"auth:alice:localhost:wrongpass"),
-    ("isuser", f"isuser:alice:localhost"),
+    ("auth", f"auth:t1.u1:v1.chat.rediff.com:password123"),
+    ("auth_wrong", f"auth:t1.u1:v1.chat.rediff.com:wrongpass"),
+    ("isuser", f"isuser:t1.u1:v1.chat.rediff.com"),
 ]
 
 for label, packet in tests:

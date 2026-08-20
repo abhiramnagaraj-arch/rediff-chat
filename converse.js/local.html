@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Converse.js</title>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Converse XMPP/Jabber Chat" />
+    <meta name="author" content="JC Brand" />
+    <meta name="keywords" content="xmpp chat webchat converse.js" />
+    <link rel="manifest" href="./manifest.json">
+    <link rel="shortcut icon" type="image/ico" href="images/favicon.ico"/>
+    <link type="text/css" rel="stylesheet" media="screen" href="dist/converse.css" />
+    <link type="text/css" rel="stylesheet" media="screen" href="custom/google-chat.css" />
+<script type="module" src="dist/converse.js"></script>
+</head>
+<body class="reset edjabberd-google-chat-shell" style="background-color: var(--global-background-color)">
+<script type="module">
+    function initConverse() {
+        converse.plugins.add('converse-debug', {
+            initialize () {
+                const { _converse } = this;
+                window._converse = _converse;
+            }
+        });
+
+        converse.initialize({
+            auto_fill_history_gaps: false,
+            archived_messages_page_size: 2,
+            allow_non_roster_messaging: true,
+            muc_subscribe_to_rai: true,
+            theme: 'classic',
+            dark_theme: 'classic',
+            auto_away: 300,
+            message_limit: 300,
+            // auto_join_rooms: ['ttt@conference.chat.example.org'],
+            loglevel: 'debug',
+            // modtools_disable_assign: ['owner', 'moderator', 'participant', 'visitor'],
+            // modtools_disable_query: ['moderator', 'participant', 'visitor'],
+            // connection_options: { 'worker': '/dist/shared-connection-worker.js' },
+            // persistent_store: 'IndexedDB',
+            message_archiving: 'always',
+            // muc_domain: 'conference.chat.example.org',
+            view_mode: 'overlayed',
+            sticky_controlbox: true,
+            websocket_url: 'ws://localhost:5280/ws',
+            // websocket_url: 'wss://chat.example.org:5381/xmpp-websocket',
+            // websocket_url: 'wss://conversejs.org/xmpp-websocket',
+            // bosh_service_url: 'http://chat.example.org:5280/http-bind',
+            allow_user_defined_connection_url: true,
+            muc_show_logs_before_join: true,
+            show_background: false,
+            show_send_button: true,
+            visible_toolbar_buttons: {
+                call: false,
+                emoji: true,
+                location: false,
+                spoiler: false,
+            },
+            whitelisted_plugins: ['converse-debug'],
+            blacklisted_plugins: [],
+        });
+    }
+
+    if (typeof  converse === 'undefined') {
+        window.addEventListener('converse-loaded', initConverse);
+    } else {
+        initConverse();
+    }
+</script>
+</html>

@@ -1,0 +1,79 @@
+@import 'bootstrap/scss/functions';
+@import 'bootstrap/scss/variables';
+@import 'bootstrap/scss/maps';
+@import 'bootstrap/scss/mixins';
+@import 'bootstrap/scss/utilities';
+
+converse-bg {
+    position: absolute;
+    display: inline-block;
+    height: 100vh;
+    width: 100vw;
+    background-color: var(--global-background-color);
+
+    &.theme-cyberpunk {
+        background: linear-gradient(#121212, #212938, #304468, #ab38bc, #121212);
+    }
+
+    .subdued {
+        opacity: 0.35;
+    }
+    .converse-brand {
+        margin-top: 20vh;
+        display: flex;
+        justify-content: space-between;
+        animation-name: fadein;
+        animation-fill-mode: forwards;
+        animation-duration: 5s;
+        animation-timing-function: ease;
+    }
+    .converse-brand__text {
+        color: var(--foreground-color);
+        font-family: var(--branding-font);
+        font-weight: normal;
+        text-align: center;
+        font-size: 140%;
+        margin-inline-start: 0.2em;
+        .byline {
+            margin: 0;
+            font-family: var(--heading-font);
+            font-size: 0.3em;
+            opacity: 0.55;
+            margin-bottom: 2em;
+            margin-inline-start: -2.7em;
+            word-spacing: 5px;
+        }
+    }
+
+    @include media-breakpoint-down(sm) {
+        .converse-brand {
+            display: none;
+        }
+    }
+
+    .converse-brand__heading {
+        @include make-col-ready();
+        @include media-breakpoint-up(md) {
+            font-size: 4em;
+            @include make-col(8);
+        }
+        @include media-breakpoint-up(lg) {
+            font-size: 5em;
+            @include make-col(9);
+        }
+        @include media-breakpoint-up(xl) {
+            font-size: 6em;
+            @include make-col(10);
+        }
+        converse-logo {
+            height: 2em;
+            display: flex;
+            margin-top: 0.4em;
+        }
+        padding: 0;
+        padding-top: 15%;
+        display: flex;
+        justify-content: center;
+        margin: auto;
+    }
+}
