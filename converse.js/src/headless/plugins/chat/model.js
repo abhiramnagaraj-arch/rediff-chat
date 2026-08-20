@@ -227,7 +227,7 @@ class ChatBox extends ModelWithVCard(ModelWithMessages(ModelWithContact(ColorAwa
             const message = this.messages.findWhere({ 'msgid': attrs.marker_id });
             const field_name = `marker_${attrs.marker}`;
             if (message && !message.get(field_name)) {
-                message.save({ field_name: new Date().toISOString() });
+                message.save({ [field_name]: new Date().toISOString() });
             }
             return true;
         }

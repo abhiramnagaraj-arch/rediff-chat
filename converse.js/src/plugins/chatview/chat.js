@@ -52,7 +52,11 @@ export default class ChatView extends DragResizable(BaseChatView) {
     }
 
     afterShown() {
+        const has_unread_messages = this.model.get('num_unread') > 0;
         this.model.setChatState(ACTIVE);
+        if (!has_unread_messages) {
+            this.model.sendDisplayedMarkerForLastIncomingMessage();
+        }
         this.model.clearUnreadMsgCounter();
         this.maybeFocus();
     }

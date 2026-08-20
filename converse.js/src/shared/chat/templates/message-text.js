@@ -53,12 +53,35 @@ const getFileAttachmentURL = (model, text) => {
     return isLikelyUploadedFileURL(url) ? url : '';
 };
 
-function tplCheckmark() {
+function tplCheckmark(label, extra_class = '') {
     return html`<converse-icon
+        title="${label}"
         size="0.75em"
         color="var(--chat-color)"
-        class="fa fa-check chat-msg__receipt"
+        class="fa fa-check chat-msg__receipt ${extra_class}"
     ></converse-icon>`;
+}
+
+function tplReceiptStatus(model, is_groupchat_message) {
+    if (model.get('sender') !== 'me' || model.isMeCommand() || is_groupchat_message || model.get('error')) {
+        return '';
+    }
+
+    if (model.get('marker_displayed') || model.get('marker_acknowledged')) {
+        return html`<span class="chat-msg__receipt-group chat-msg__receipt-group--read" title="${__('Read')}">
+            ${tplCheckmark(__('Read'))}${tplCheckmark(__('Read'), 'chat-msg__receipt--second')}
+        </span>`;
+    }
+
+    if (model.get('marker_received') || model.get('received')) {
+        return html`<span class="chat-msg__receipt-group chat-msg__receipt-group--delivered" title="${__('Delivered')}">
+            ${tplCheckmark(__('Delivered'))}
+        </span>`;
+    }
+
+    return html`<span class="chat-msg__receipt-group chat-msg__receipt-group--sent" title="${__('Sent')}">
+        ${tplCheckmark(__('Sent'))}
+    </span>`;
 }
 
 /**
@@ -98,7 +121,13 @@ export default (el) => {
         ${el.model.get('subject') ? html`<div class="chat-msg__subject">${el.model.get('subject')}</div>` : ''}
         <span class="chat-msg__body--wrapper ${error_text ? 'error' : ''}">
             ${file_attachment_url
-                ? html`<a class="chat-msg__file-attachment" href="${file_attachment_url}" target="_blank" rel="noopener" download>
+                ? html`<a
+                      class="chat-msg__file-attachment"
+                      href="${file_attachment_url}"
+                      target="_blank"
+                      rel="noopener"
+                      download
+                  >
                       <span class="chat-msg__file-attachment-icon" aria-hidden="true">↧</span>
                       <span class="chat-msg__file-attachment-copy">
                           <span class="chat-msg__file-attachment-name">${getFileNameFromURL(file_attachment_url)}</span>
@@ -114,7 +143,7 @@ export default (el) => {
                       ?is_me_message=${el.model.isMeCommand()}
                       text="${text}"
                   ></converse-chat-message-body>`}
-            ${el.model.get('received') && !el.model.isMeCommand() && !is_groupchat_message ? tplCheckmark() : ''}
+            ${tplReceiptStatus(el.model, is_groupchat_message)}
             ${el.model.get('edited') ? tplEditedIcon(el) : ''}
         </span>
         ${show_oob

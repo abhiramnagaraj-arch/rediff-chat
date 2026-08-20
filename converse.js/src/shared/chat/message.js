@@ -127,8 +127,10 @@ export default class Message extends ObservableElement {
         // Messages whose ephemeral auto-removal is deferred (e.g. an OMEMO
         // "couldn't be decrypted" notice) should only be considered "seen" once
         // the message is in view AND the tab is focused, so we're confident the
-        // user actually saw it before it's removed.
-        this.observableRequireFocus = !!this.model?.get('defer_ephemeral_timer');
+        // user actually saw it before it's removed. Incoming messages also need
+        // focus-aware visibility so we only send read markers when the user can
+        // actually see them.
+        this.observableRequireFocus = !!this.model?.get('defer_ephemeral_timer') || this.model?.get('sender') !== 'me';
         super.firstUpdated(changed);
     }
 
@@ -140,6 +142,9 @@ export default class Message extends ObservableElement {
      */
     onVisibilityChanged(entry) {
         super.onVisibilityChanged(entry);
+        if (this.model?.get('sender') === 'them' && !this.model.get('is_archived') && !this.model.get('is_carbon')) {
+            this.model_with_messages.sendMarkerForMessage(this.model, 'displayed', true);
+        }
         if (this.model?.get('defer_ephemeral_timer')) {
             this.model.startEphemeralTimer();
         }

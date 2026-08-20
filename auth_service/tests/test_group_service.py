@@ -164,6 +164,38 @@ class GroupServiceSyncTests(unittest.TestCase):
         self.assertEqual(result, {"success": True})
         remove_affiliation.assert_called_once_with("team-42@conference.v1.chat.rediff.com", "t1.alice@v1.chat.rediff.com")
 
+    def test_get_group_keeps_stored_members_and_repairs_live_affiliations(self):
+        members = [
+            {
+                "member_jid": self.current.jid,
+                "role": "owner",
+                "affiliation": "owner",
+                "created_at": datetime.now(timezone.utc),
+            },
+            {
+                "member_jid": "t1.alice@v1.chat.rediff.com",
+                "role": "member",
+                "affiliation": "member",
+                "created_at": datetime.now(timezone.utc),
+            },
+        ]
+        cursor = FakeCursor(fetchall_rows=members)
+        calls = []
+
+        with patch.object(group_service, "_group_row", return_value=self.group), patch.object(
+            group_service, "_member_row", return_value={"member_jid": self.current.jid, "role": "owner", "affiliation": "owner"}
+        ), patch.object(group_service.database, "connection", side_effect=lambda: fake_connection(cursor)), patch.object(
+            group_service.ejabberd, "set_room_affiliation", side_effect=lambda muc, jid, aff: calls.append((muc, jid, aff)) or True
+        ):
+            response = group_service.get_group(42, self.current)
+
+        self.assertEqual([member.member_jid for member in response.members], [self.current.jid, "t1.alice@v1.chat.rediff.com"])
+        self.assertFalse(any("DELETE FROM rediff_group_members" in query for query, _ in cursor.executed))
+        self.assertEqual(calls, [
+            ("team-42@conference.v1.chat.rediff.com", self.current.jid, "owner"),
+            ("team-42@conference.v1.chat.rediff.com", "t1.alice@v1.chat.rediff.com", "member"),
+        ])
+
 
 if __name__ == "__main__":
     unittest.main()

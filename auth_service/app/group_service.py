@@ -100,33 +100,9 @@ def sync_group_members(group_id: int, current: CurrentUser) -> dict[str, Any]:
             member = _member_row(cur, group_id, current.jid)
             if not member:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this group")
-            cur.execute(
-                """
-                SELECT member_jid, role, affiliation, created_at
-                FROM rediff_group_members
-                WHERE group_id = %s AND tenant_slug = %s
-                ORDER BY role DESC, member_jid ASC
-                """,
-                (group_id, current.tenant_slug),
-            )
-            members = cur.fetchall()
+            members = _group_members(cur, group_id, current.tenant_slug)
 
-    synced_members = 0
-    skipped_members = 0
-    for member_row in members:
-        affiliation = _member_affiliation(member_row, group["owner_jid"])
-        if _sync_member_affiliation(group["muc_jid"], member_row["member_jid"], affiliation):
-            synced_members += 1
-        else:
-            skipped_members += 1
-
-    return {
-        "success": True,
-        "muc_jid": group["muc_jid"],
-        "synced_members": synced_members,
-        "skipped_members": skipped_members,
-        "room_missing": skipped_members > 0 and synced_members == 0,
-    }
+    return _sync_members_to_muc(group, members)
 
 
 def _row_to_group(row: dict[str, Any], member: dict[str, Any] | None = None, include_config: bool = False) -> schemas.GroupResponse:
@@ -189,36 +165,36 @@ def _ensure_editor(cur, group_id: int, current: CurrentUser) -> dict[str, Any]:
     return member
 
 
-def _reconcile_members_with_muc(group: dict[str, Any], members: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    affiliations = ejabberd.get_room_affiliations(group["muc_jid"])
-    if affiliations is None:
-        return members
+def _group_members(cur, group_id: int, tenant_slug: str) -> list[dict[str, Any]]:
+    cur.execute(
+        """
+        SELECT member_jid, role, affiliation, created_at
+        FROM rediff_group_members
+        WHERE group_id = %s AND tenant_slug = %s
+        ORDER BY role DESC, member_jid ASC
+        """,
+        (group_id, tenant_slug),
+    )
+    return cur.fetchall()
 
-    live_jids = {
-        bare_jid(item.get("jid"))
-        for item in affiliations
-        if bare_jid(item.get("jid")) and str(item.get("affiliation") or "").lower() in {"owner", "admin", "member"}
+
+def _sync_members_to_muc(group: dict[str, Any], members: list[dict[str, Any]]) -> dict[str, Any]:
+    synced_members = 0
+    skipped_members = 0
+    for member_row in members:
+        affiliation = _member_affiliation(member_row, group["owner_jid"])
+        if _sync_member_affiliation(group["muc_jid"], member_row["member_jid"], affiliation):
+            synced_members += 1
+        else:
+            skipped_members += 1
+
+    return {
+        "success": True,
+        "muc_jid": group["muc_jid"],
+        "synced_members": synced_members,
+        "skipped_members": skipped_members,
+        "room_missing": bool(members) and skipped_members == len(members),
     }
-    stale_jids = [
-        bare_jid(member["member_jid"])
-        for member in members
-        if bare_jid(member["member_jid"]) != bare_jid(group["owner_jid"]) and bare_jid(member["member_jid"]) not in live_jids
-    ]
-    if stale_jids:
-        with database.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    DELETE FROM rediff_group_members
-                    WHERE group_id = %s AND member_jid = ANY(%s)
-                    """,
-                    (group["id"], stale_jids),
-                )
-    return [
-        member
-        for member in members
-        if bare_jid(member["member_jid"]) == bare_jid(group["owner_jid"]) or bare_jid(member["member_jid"]) in live_jids
-    ]
 
 
 def list_groups(current: CurrentUser) -> list[schemas.GroupResponse]:
@@ -307,17 +283,8 @@ def get_group(group_id: int, current: CurrentUser) -> schemas.GroupDetailRespons
             member = _member_row(cur, group_id, current.jid)
             if not member:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this group")
-            cur.execute(
-                """
-                SELECT member_jid, role, affiliation, created_at
-                FROM rediff_group_members
-                WHERE group_id = %s AND tenant_slug = %s
-                ORDER BY role DESC, member_jid ASC
-                """,
-                (group_id, current.tenant_slug),
-            )
-            members = cur.fetchall()
-    members = _reconcile_members_with_muc(group, members)
+            members = _group_members(cur, group_id, current.tenant_slug)
+    _sync_members_to_muc(group, members)
     response = schemas.GroupDetailResponse(**_row_to_group(group, member, include_config=True).model_dump())
     response.members = [schemas.GroupMemberResponse(**m) for m in members]
     return response
@@ -354,6 +321,8 @@ def join_group(group_id: int, current: CurrentUser) -> schemas.GroupJoinResponse
             member = _member_row(cur, group_id, current.jid)
             if not member:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not allowed to join this group")
+            members = _group_members(cur, group_id, current.tenant_slug)
+    _sync_members_to_muc(group, members)
     return schemas.GroupJoinResponse(
         success=True,
         muc_jid=group["muc_jid"],
@@ -397,33 +366,9 @@ def sync_room_members(group_id: int, current: CurrentUser) -> dict[str, Any]:
             member = _member_row(cur, group_id, current.jid)
             if not member:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this group")
-            cur.execute(
-                """
-                SELECT member_jid, role, affiliation, created_at
-                FROM rediff_group_members
-                WHERE group_id = %s AND tenant_slug = %s
-                ORDER BY role DESC, member_jid ASC
-                """,
-                (group_id, current.tenant_slug),
-            )
-            members = cur.fetchall()
+            members = _group_members(cur, group_id, current.tenant_slug)
 
-    synced_members = 0
-    skipped_members = 0
-    for member_row in members:
-        affiliation = _member_affiliation(member_row, group["owner_jid"])
-        if _sync_member_affiliation(group["muc_jid"], member_row["member_jid"], affiliation):
-            synced_members += 1
-        else:
-            skipped_members += 1
-
-    return {
-        "success": True,
-        "muc_jid": group["muc_jid"],
-        "synced_members": synced_members,
-        "skipped_members": skipped_members,
-        "room_missing": skipped_members > 0 and synced_members == 0,
-    }
+    return _sync_members_to_muc(group, members)
 
 
 def remove_member(group_id: int, member_jid: str, current: CurrentUser) -> dict[str, bool]:

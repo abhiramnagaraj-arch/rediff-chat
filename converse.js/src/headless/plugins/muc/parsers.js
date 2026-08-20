@@ -269,6 +269,7 @@ export async function parseMUCMessage(original_stanza, chatbox) {
                 'is_markable': !!sizzle(`message > markable[xmlns="${Strophe.NS.MARKERS}"]`, stanza).length,
                 'is_marker': !!marker,
                 'is_unstyled': !!sizzle(`message > unstyled[xmlns="${Strophe.NS.STYLING}"]`, stanza).length,
+                'marker': marker?.localName,
                 'marker_id': marker && marker.getAttribute('id'),
                 'nick': Strophe.unescapeNode(Strophe.getResourceFromJid(from)),
                 'occupant_id': getOccupantID(stanza, chatbox),

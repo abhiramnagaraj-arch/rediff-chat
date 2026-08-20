@@ -561,9 +561,31 @@ body.converse-overlayed .conversejs .box-flyout {
     font-size: 12px !important;
 }
 
+.conversejs .message.chat-msg .chat-msg__receipt-group {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    margin-left: 5px;
+    vertical-align: -1px;
+}
+
+.conversejs .message.chat-msg .chat-msg__receipt-group .chat-msg__receipt--second {
+    margin-left: -6px;
+}
+
 .conversejs .message.chat-msg .chat-msg__content--me .chat-msg__receipt,
 .conversejs .message.chat-msg .chat-msg__content--me .chat-msg__receipt * {
+    color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__receipt-group--delivered .chat-msg__receipt,
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__receipt-group--delivered .chat-msg__receipt * {
     color: #b8ffd8 !important;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__receipt-group--read .chat-msg__receipt,
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__receipt-group--read .chat-msg__receipt * {
+    color: #5eead4 !important;
 }
 
 .conversejs .date-separator,
@@ -2224,12 +2246,13 @@ body.rediff-chat .rediff-groups-close {
 }
 
 body.rediff-chat .rediff-groups-body {
-    display: grid;
-    grid-template-columns: minmax(240px, 300px) 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 16px;
     min-height: 0;
     padding: 16px;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 body.rediff-chat .rediff-groups-form {
@@ -2941,6 +2964,83 @@ body.rediff-chat .rediff-managed-groups-list {
 }
 
 
+
+body.rediff-chat #chatrooms > .rediff-managed-groups-list,
+body.rediff-chat converse-rooms-list > .rediff-managed-groups-list {
+    display: block !important;
+    margin: 8px 18px 14px !important;
+}
+
+body.rediff-chat #chatrooms > .rediff-managed-groups-list[hidden],
+body.rediff-chat converse-rooms-list > .rediff-managed-groups-list[hidden] {
+    display: none !important;
+}
+
+body.rediff-chat .rediff-managed-groups-items {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+}
+
+body.rediff-chat .rediff-managed-group-item {
+    display: grid !important;
+    grid-template-columns: 34px minmax(0, 1fr) !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+    min-height: 46px !important;
+    padding: 7px 10px !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+    text-align: left !important;
+    cursor: pointer !important;
+}
+
+body.rediff-chat .rediff-managed-group-item:hover,
+body.rediff-chat .rediff-managed-group-item:focus-visible {
+    background: rgba(232, 45, 78, 0.22) !important;
+    outline: none !important;
+}
+
+body.rediff-chat .rediff-managed-group-avatar {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #e82d4e, #1f5fbd) !important;
+    color: #ffffff !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+}
+
+body.rediff-chat .rediff-managed-group-copy {
+    min-width: 0 !important;
+}
+
+body.rediff-chat .rediff-managed-group-copy strong,
+body.rediff-chat .rediff-managed-group-copy small {
+    display: block !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+body.rediff-chat .rediff-managed-group-copy strong {
+    color: #ffffff !important;
+    font-size: 13px !important;
+    font-weight: 760 !important;
+}
+
+body.rediff-chat .rediff-managed-group-copy small {
+    color: rgba(234, 223, 240, 0.72) !important;
+    font-size: 11px !important;
+}
+
+
 /* Keep New Chat/New Group visible in the left sidebar action dock. */
 body.rediff-chat #controlbox .controlbox-pane > .rediff-sidebar-actions,
 body.rediff-chat converse-controlbox .controlbox-pane > .rediff-sidebar-actions {
@@ -3030,6 +3130,13 @@ body.rediff-chat .conversejs converse-controlbox .dropdown-menu {
     background: #24182b !important;
     color: #f7f2fb !important;
     box-shadow: 0 18px 44px rgba(0, 0, 0, 0.36) !important;
+    z-index: 4000 !important;
+}
+
+body.rediff-chat .conversejs #controlbox converse-dropdown.dropdown--contacts,
+body.rediff-chat .conversejs converse-controlbox converse-dropdown.dropdown--contacts {
+    position: relative !important;
+    z-index: 4001 !important;
 }
 
 body.rediff-chat .conversejs #controlbox .dropdown-item,
@@ -3403,6 +3510,11 @@ body.rediff-chat .conversejs *::-webkit-scrollbar {
     height: 10px;
 }
 
+body.rediff-chat .conversejs *::-webkit-scrollbar:horizontal {
+    display: none !important;
+    height: 0 !important;
+}
+
 body.rediff-chat .conversejs *::-webkit-scrollbar-track {
     background: rgba(24, 33, 47, 0.04);
     border-radius: 999px;
@@ -3473,8 +3585,15 @@ body.rediff-chat .conversejs .message.chat-msg {
 }
 
 body.rediff-chat .conversejs .message.chat-msg .chat-msg__content {
+    width: fit-content !important;
     max-width: min(62%, 720px) !important;
     gap: 4px;
+}
+
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__body,
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__message {
+    width: fit-content !important;
+    max-width: 100%;
 }
 
 body.rediff-chat .conversejs .message.chat-msg .chat-msg__heading {
@@ -3491,7 +3610,14 @@ body.rediff-chat .conversejs .message.chat-msg .chat-msg__time {
     font-size: 0.7rem !important;
 }
 
+body.rediff-chat .conversejs .message.chat-msg .chat-msg__content--me .chat-msg__time {
+    color: #8f4a5d !important;
+    font-weight: 650 !important;
+    text-shadow: none !important;
+}
+
 body.rediff-chat .conversejs .message.chat-msg .chat-msg__body--wrapper {
+    width: fit-content !important;
     min-height: 42px;
     padding: 11px 14px !important;
     border-radius: 18px 18px 18px 8px !important;
@@ -4224,7 +4350,8 @@ body.rediff-chat.rediff-workspace-mounted .rediff-workspace-stats {
 body.rediff-chat.rediff-workspace-mounted .rediff-workspace-recents__list {
     min-height: 0 !important;
     padding-top: 12px !important;
-    overflow: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
 }
 
 body.rediff-chat.rediff-workspace-mounted .conversejs .chatbox:not(#controlbox),
@@ -4285,6 +4412,7 @@ body.rediff-chat.rediff-workspace-mounted .conversejs .chatroom .chat-body,
 body.rediff-chat.rediff-workspace-mounted .conversejs converse-chat.chatbox .chat-body,
 body.rediff-chat.rediff-workspace-mounted .conversejs converse-muc.chatbox .chat-body {
     height: 100% !important;
+    background: rgba(245, 248, 253, 0.92) !important;
 }
 
 body.rediff-chat .conversejs .occupants,
@@ -4338,11 +4466,84 @@ body.rediff-chat.rediff-workspace-mounted .conversejs .chatroom .chat-content__m
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 248, 253, 0.92)),
         linear-gradient(90deg, rgba(217, 37, 67, 0.04), transparent 34%) !important;
+    overflow-x: hidden !important;
+}
+
+body.rediff-chat.rediff-workspace-mounted .conversejs .chat-area,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-muc-chatarea,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-chat-content,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-message-history,
+body.rediff-chat.rediff-workspace-mounted .conversejs .chat-content {
+    background: rgba(245, 248, 253, 0.92) !important;
+    overflow-x: hidden !important;
+}
+
+body.rediff-chat.rediff-workspace-mounted .conversejs .chat-content__notifications:empty {
+    display: none !important;
+}
+
+body.rediff-chat.rediff-workspace-mounted .conversejs .chat-content__notifications {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 0 !important;
+}
+
+body.rediff-chat.rediff-workspace-mounted .conversejs .message.chat-msg {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+body.rediff-chat.rediff-workspace-mounted .conversejs .message.chat-msg .chat-msg__content {
+    max-width: min(62%, 720px, calc(100% - 56px)) !important;
+}
+
+body.rediff-chat.rediff-workspace-mounted .conversejs .chat-content__messages::-webkit-scrollbar:horizontal {
+    display: none !important;
+    height: 0 !important;
+}
+
+body.rediff-chat.rediff-workspace-mounted .conversejs .chatbox:not(#controlbox),
+body.rediff-chat.rediff-workspace-mounted .conversejs .chatroom,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-chat.chatbox,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-muc.chatbox,
+body.rediff-chat.rediff-workspace-mounted .conversejs .chatbox:not(#controlbox) .box-flyout,
+body.rediff-chat.rediff-workspace-mounted .conversejs .chatroom .box-flyout,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-chat.chatbox .box-flyout,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-muc.chatbox .box-flyout,
+body.rediff-chat.rediff-workspace-mounted .conversejs .chat-body,
+body.rediff-chat.rediff-workspace-mounted .conversejs .chat-content,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-chat-content,
+body.rediff-chat.rediff-workspace-mounted .conversejs .chat-content__messages,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-message-history {
+    max-width: 100% !important;
+    overflow-x: clip !important;
+}
+
+body.rediff-chat.rediff-workspace-mounted .conversejs .chat-content__messages {
+    overflow-y: auto !important;
+    scrollbar-width: thin !important;
+}
+
+body.rediff-chat.rediff-workspace-mounted .conversejs .chatbox:not(#controlbox)::-webkit-scrollbar:horizontal,
+body.rediff-chat.rediff-workspace-mounted .conversejs .chatroom::-webkit-scrollbar:horizontal,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-chat.chatbox::-webkit-scrollbar:horizontal,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-muc.chatbox::-webkit-scrollbar:horizontal,
+body.rediff-chat.rediff-workspace-mounted .conversejs .box-flyout::-webkit-scrollbar:horizontal,
+body.rediff-chat.rediff-workspace-mounted .conversejs .chat-body::-webkit-scrollbar:horizontal,
+body.rediff-chat.rediff-workspace-mounted .conversejs .chat-content::-webkit-scrollbar:horizontal,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-chat-content::-webkit-scrollbar:horizontal,
+body.rediff-chat.rediff-workspace-mounted .conversejs .chat-content__messages::-webkit-scrollbar:horizontal,
+body.rediff-chat.rediff-workspace-mounted .conversejs converse-message-history::-webkit-scrollbar:horizontal {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
 }
 
 body.rediff-chat.rediff-workspace-mounted .conversejs .chat-message-form {
     padding: 18px 22px 22px !important;
+    border-top: 0 !important;
     background: rgba(255, 255, 255, 0.92) !important;
+    box-shadow: none !important;
 }
 
 body.rediff-chat.rediff-workspace-mounted .conversejs .chat-textarea,
@@ -4545,4 +4746,61 @@ body.rediff-chat .conversejs .message.chat-msg .chat-msg__body--wrapper:has(.cha
     margin-left: 6px !important;
     align-self: flex-end !important;
     color: var(--rc-green, #1bbf72) !important;
+}
+
+
+/* Rediff managed groups must remain visible regardless of where Converse mounts the sidebar. */
+body.rediff-chat .rediff-managed-groups-list:not([hidden]) {
+    display: block !important;
+    visibility: visible !important;
+}
+
+body.rediff-chat .rediff-sidebar-actions > .rediff-managed-groups-list:not([hidden]),
+body.rediff-chat #controlbox .controlbox-pane > .rediff-managed-groups-list:not([hidden]),
+body.rediff-chat converse-controlbox .controlbox-pane > .rediff-managed-groups-list:not([hidden]) {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 0 12px !important;
+    order: -1 !important;
+}
+
+/* Final UI overrides for the workspace and groups modal. */
+body.rediff-chat.rediff-workspace-mounted .rediff-workspace-searchbar__actions {
+    display: none !important;
+}
+
+body.rediff-chat .rediff-groups-dialog .modal-body.rediff-groups-body,
+body.rediff-chat .rediff-groups-dialog .modal-body.rediff-groups-body--groups,
+body.rediff-chat .rediff-groups-dialog .modal-body.rediff-groups-body--participants {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 18px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+body.rediff-chat .rediff-groups-dialog .modal-body.rediff-groups-body .rediff-groups-form,
+body.rediff-chat .rediff-groups-dialog .modal-body.rediff-groups-body .rediff-participants-form,
+body.rediff-chat .rediff-groups-dialog .modal-body.rediff-groups-body .rediff-participant-summary,
+body.rediff-chat .rediff-groups-dialog .modal-body.rediff-groups-body .rediff-groups-status,
+body.rediff-chat .rediff-groups-dialog .modal-body.rediff-groups-body .rediff-groups-list {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+body.rediff-chat .conversejs #controlbox converse-dropdown.dropdown--contacts,
+body.rediff-chat .conversejs converse-controlbox converse-dropdown.dropdown--contacts {
+    position: relative !important;
+    z-index: 4001 !important;
+}
+
+body.rediff-chat .conversejs #controlbox converse-dropdown.dropdown--contacts .dropdown-menu,
+body.rediff-chat .conversejs converse-controlbox converse-dropdown.dropdown--contacts .dropdown-menu {
+    z-index: 4002 !important;
+}
+
+body.rediff-chat.rediff-workspace-mounted .rediff-workspace-recents__list {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
 }

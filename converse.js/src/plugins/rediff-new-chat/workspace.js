@@ -64,6 +64,7 @@ const getPresenceClass = (contact) => {
 };
 
 const bareJid = (jid) => String(jid || '').split('/')[0];
+const isLoginScreenVisible = () => Boolean(document.querySelector('converse-login-form, converse-registration-form, #converse-login, #converse-register'));
 
 export class RediffWorkspace extends HTMLElement {
     constructor() {
@@ -180,6 +181,7 @@ export class RediffWorkspace extends HTMLElement {
             .sort((a, b) => this.getSortScore(b) - this.getSortScore(a));
     }
 
+
     getSortScore(chat) {
         const unread = (chat.get('num_unread') || 0) + (chat.get('num_unread_general') || 0);
         const messages = chat.messages?.models || [];
@@ -214,6 +216,7 @@ export class RediffWorkspace extends HTMLElement {
             seen.add(item.jid);
             results.push(item);
         };
+
 
         this.getRecentChatboxes().forEach((chat) => {
             const haystack = `${getChatName(chat)} ${chat.get('jid')}`.toLowerCase();
@@ -358,11 +361,13 @@ export class RediffWorkspace extends HTMLElement {
 
         if (!existing) {
             if (type === 'groupchat') {
-                await this.api.rooms.open(jid, {}, true);
+                const opened = await window.rediffConverse?.groups?.openManaged?.(jid);
+                if (!opened) await this.api.rooms.open(jid, {}, true);
             } else {
                 await this.api.chats.open(jid, {}, true);
             }
         } else {
+            if (type === 'groupchat') await window.rediffConverse?.groups?.openManaged?.(jid);
             existing.save({ closed: false, hidden: false });
         }
 
@@ -587,6 +592,7 @@ export class RediffWorkspace extends HTMLElement {
     }
 
     render() {
+
         const totalContacts = this.getRosterContacts().length;
         const totalRecents = this.getRecentChatboxes().length;
         const activeElement = document.activeElement;
@@ -613,10 +619,6 @@ export class RediffWorkspace extends HTMLElement {
                                 ? '<button type="button" class="rediff-workspace-searchbar__clear" data-rediff-workspace-clear-search aria-label="Clear search">×</button>'
                                 : ''
                         }
-                    </div>
-                    <div class="rediff-workspace-searchbar__actions">
-                        <button type="button" class="rediff-workspace-pill" data-rediff-workspace-new-chat>New chat</button>
-                        <button type="button" class="rediff-workspace-pill is-secondary" data-rediff-workspace-new-group>New group</button>
                     </div>
                     ${this.state.query ? `<div class="rediff-workspace-searchbar__summary">${escapeHTML(this.getSearchSummary())}</div>` : ''}
                     ${this.renderSearchResults()}
@@ -652,6 +654,15 @@ export class RediffWorkspace extends HTMLElement {
 }
 
 export const mountRediffWorkspace = (api, _converse, actions, auth = null) => {
+    if (isLoginScreenVisible()) {
+        document.querySelector('converse-rediff-workspace')?.remove();
+        document.body.classList.remove('rediff-workspace-mounted');
+        document.body.classList.add('rediff-login-screen');
+        return null;
+    }
+
+    document.body.classList.remove('rediff-login-screen');
+
     if (!customElements.get('converse-rediff-workspace')) {
         customElements.define('converse-rediff-workspace', RediffWorkspace);
     }

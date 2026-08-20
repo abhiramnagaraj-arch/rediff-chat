@@ -102,6 +102,7 @@ const getPresenceClass = (contact) => {
 };
 
 const bareJid = (jid) => String(jid || '').split('/')[0];
+const isAuthenticatedSession = (api) => Boolean(getCurrentJid(api));
 
 const getInitial = (model) => getChatName(model).trim().slice(0, 1).toUpperCase() || '?';
 
@@ -1103,6 +1104,11 @@ export class RediffOverlay extends HTMLElement {
     }
 
     render() {
+        if (!isAuthenticatedSession(this.api)) {
+            this.innerHTML = '';
+            return;
+        }
+
         const unread = this.getUnreadCount();
         this.innerHTML = `
             <div class="rediff-overlay">
@@ -1157,6 +1163,11 @@ export class RediffOverlay extends HTMLElement {
 export const defineRediffOverlay = (api, _converse, actions) => {
     if (!customElements.get('converse-rediff-overlay')) {
         customElements.define('converse-rediff-overlay', RediffOverlay);
+    }
+
+    if (!isAuthenticatedSession(api)) {
+        document.querySelector('converse-rediff-overlay')?.remove();
+        return null;
     }
 
     let overlay = document.querySelector('converse-rediff-overlay');

@@ -117,6 +117,7 @@ modules:
 
   mod_muc:
     host: "conference.@HOST@"
+    db_type: sql
     default_room_options:
       persistent: true
 

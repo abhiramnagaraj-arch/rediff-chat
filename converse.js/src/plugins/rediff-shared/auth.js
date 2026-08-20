@@ -2,34 +2,50 @@ import { getBareJid } from './jid.js';
 
 const tokenStorageKey = 'rediff_access_token';
 const tokenKeys = [tokenStorageKey, 'access_token', 'keycloak_token', 'kc_token'];
+const getScopedTokenKey = (jid) => `${tokenStorageKey}:${getBareJid(jid)}`;
 
 export const createRediffAuth = (api) => {
     let tokenRequest = null;
     let lastLoginCredentials = null;
 
     const getSearchToken = () => {
+        const currentJid = getBareJid(api.user?.jid?.() || api.connection?.get?.()?.jid);
+        if (!currentJid) return null;
+
         const configured = api.settings.get('rediff_new_chat_token');
         if (configured) return configured;
-        if (window.REDIFF_ACCESS_TOKEN) return window.REDIFF_ACCESS_TOKEN;
+
+        const scopedKey = getScopedTokenKey(currentJid);
+        if (window.REDIFF_ACCESS_TOKEN?.jid === currentJid && window.REDIFF_ACCESS_TOKEN?.token) {
+            return window.REDIFF_ACCESS_TOKEN.token;
+        }
 
         for (const storage of [window.sessionStorage, window.localStorage]) {
-            for (const key of tokenKeys) {
-                const token = storage.getItem(key);
-                if (token) return token;
-            }
+            const scopedToken = storage.getItem(scopedKey);
+            if (scopedToken) return scopedToken;
         }
         return null;
     };
 
-    const rememberSearchToken = (token) => {
+    const rememberSearchToken = (token, jid) => {
         if (!token) return;
-        window.REDIFF_ACCESS_TOKEN = token;
-        window.sessionStorage.setItem(tokenStorageKey, token);
+        const currentJid = getBareJid(jid);
+        if (!currentJid) return;
+        window.REDIFF_ACCESS_TOKEN = { jid: currentJid, token };
+        window.sessionStorage.setItem(getScopedTokenKey(currentJid), token);
     };
 
     const clearSearchToken = () => {
         delete window.REDIFF_ACCESS_TOKEN;
         for (const storage of [window.sessionStorage, window.localStorage]) {
+            const keysToRemove = [];
+            for (let index = 0; index < storage.length; index += 1) {
+                const key = storage.key(index);
+                if (key && key.startsWith(`${tokenStorageKey}:`)) {
+                    keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach((key) => storage.removeItem(key));
             for (const key of tokenKeys) {
                 storage.removeItem(key);
             }
@@ -66,7 +82,7 @@ export const createRediffAuth = (api) => {
             .then(async (response) => {
                 if (!response.ok) throw new Error(`Token request failed: ${response.status}`);
                 const data = await response.json();
-                rememberSearchToken(data.access_token);
+                rememberSearchToken(data.access_token, safeJid);
                 return data.access_token || null;
             })
             .catch((error) => {
@@ -105,7 +121,9 @@ export const createRediffAuth = (api) => {
 
     const bootstrapStoredSearchToken = () => {
         const credentials = getLoginCredentials();
-        if (credentials) requestSearchToken(credentials.jid, credentials.password);
+        if (credentials && getBareJid(api.user?.jid?.() || api.connection?.get?.()?.jid)) {
+            requestSearchToken(credentials.jid, credentials.password);
+        }
     };
 
     const authenticatedFetch = async (url, options = {}) => {

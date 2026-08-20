@@ -7,6 +7,17 @@ import { mountRediffWorkspace } from './workspace.js';
 const pluginName = 'rediff_new_chat';
 const GROUPS_URL = '/api/groups';
 let managedGroups = [];
+let rediffSurface = {
+    overlay: null,
+    workspace: null,
+};
+
+const isAuthenticatedSession = (api) => Boolean(getCurrentJid(api));
+
+const setRediffAuthState = (isAuthenticated) => {
+    document.body.classList.toggle('rediff-authenticated', Boolean(isAuthenticated));
+    document.body.classList.toggle('rediff-login-screen', !isAuthenticated);
+};
 
 const escapeHTML = (value) =>
     String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -329,28 +340,44 @@ const getConverseApi = (plugin) => plugin.api || plugin._converse?.api || window
 const openRediffNewChat = (api, ev) => {
     ev?.preventDefault?.();
     ev?.stopPropagation?.();
+    if (!isAuthenticatedSession(api)) return;
     api.modal.show('converse-rediff-new-chat-modal', {}, ev);
 };
 
 const openRediffGroups = (api, ev) => {
     ev?.preventDefault?.();
     ev?.stopPropagation?.();
+    if (!isAuthenticatedSession(api)) return;
     api.modal.show('converse-rediff-groups-modal', { mode: 'groups' }, ev);
 };
 
 const openRediffParticipants = (api, mucJid, ev) => {
     ev?.preventDefault?.();
     ev?.stopPropagation?.();
+    if (!isAuthenticatedSession(api)) return;
     api.modal.show('converse-rediff-groups-modal', {
         mode: 'participants',
         participantMucJid: mucJid,
     }, ev);
 };
 
+const installManagedGroupModalOverride = (api) => {
+    if (!api?.modal?.show || api.modal.show.rediffManagedGroupsOverride) return;
+
+    const originalShow = api.modal.show.bind(api.modal);
+    api.modal.show = (name, properties = {}, ev) => {
+        if (name === 'converse-muc-list-modal') {
+            return openRediffGroups(api, ev);
+        }
+        return originalShow(name, properties, ev);
+    };
+    api.modal.show.rediffManagedGroupsOverride = true;
+};
+
 const openManagedGroupFromSidebar = async (api, auth, group, ev) => {
     ev?.preventDefault?.();
     ev?.stopPropagation?.();
-    if (!group?.muc_jid || !api?.rooms?.open) return;
+    if (!isAuthenticatedSession(api) || !group?.muc_jid || !api?.rooms?.open) return;
 
     try {
         let roomData = group;
@@ -408,36 +435,51 @@ const positionRediffSidebarSections = (pane, dock) => {
     if (
         rosterSection &&
         nativeChatrooms &&
+        rosterSection.parentElement === pane &&
+        nativeChatrooms.parentElement === pane &&
         rosterSection.compareDocumentPosition(nativeChatrooms) & Node.DOCUMENT_POSITION_PRECEDING
     ) {
         pane.insertBefore(rosterSection, nativeChatrooms);
     }
 
-    if (rosterSection) {
+    if (rosterSection?.parentElement === pane) {
         pane.insertBefore(dock, rosterSection);
         return;
     }
 
-    pane.prepend(dock);
+    if (dock.parentElement !== pane) {
+        pane.prepend(dock);
+    }
 };
 
-const renderManagedGroups = (api, auth) => {
-    const dock = document.querySelector('.rediff-sidebar-actions');
-    if (!dock) return;
+const renderManagedGroups = () => {
+    document.querySelectorAll('.rediff-managed-groups-list').forEach((list) => {
+        list.remove();
+    });
+};
 
-    let list = dock.querySelector('.rediff-managed-groups-list');
-    if (!list) {
-        list = document.createElement('section');
-        list.className = 'rediff-managed-groups-list';
-        dock.prepend(list);
+const removeManagedGroupLocally = async (api, group) => {
+    const mucJid = group?.muc_jid;
+    if (!mucJid) return;
+
+    try {
+        const bookmark = api.bookmarks?.get ? await api.bookmarks.get(mucJid) : null;
+        bookmark?.destroy?.();
+    } catch (error) {
+        console.warn('Unable to remove stale managed group bookmark', mucJid, error);
     }
 
-    list.hidden = true;
-    list.innerHTML = '';
+    try {
+        const room = api.rooms?.get ? await api.rooms.get(mucJid) : null;
+        await room?.leave?.('Removed from group');
+        await room?.close?.({ name: 'rediffManagedGroupRemoved' });
+    } catch (error) {
+        console.warn('Unable to close stale managed group room', mucJid, error);
+    }
 };
 
 const syncManagedGroupsToSidebar = async (api, auth) => {
-    if (!api?.rooms?.open || !auth?.authenticatedFetch || syncManagedGroupsToSidebar.running) return;
+    if (!isAuthenticatedSession(api) || !api?.rooms?.open || !auth?.authenticatedFetch || syncManagedGroupsToSidebar.running) return;
     syncManagedGroupsToSidebar.running = true;
 
     try {
@@ -445,6 +487,7 @@ const syncManagedGroupsToSidebar = async (api, auth) => {
         if (missingToken || !response?.ok) return;
 
         const groups = await response.json();
+        const previousGroups = managedGroups;
         const seenGroups = new Set();
         managedGroups = (Array.isArray(groups) ? groups : []).filter((group) => {
             const key = getGroupKey(group);
@@ -452,6 +495,17 @@ const syncManagedGroupsToSidebar = async (api, auth) => {
             seenGroups.add(key);
             return true;
         });
+
+        const currentKeys = new Set(managedGroups.map(getGroupKey));
+        previousGroups
+            .filter((group) => !currentKeys.has(getGroupKey(group)))
+            .forEach((group) => removeManagedGroupLocally(api, group));
+
+        window.rediffConverse = Object.assign(window.rediffConverse || {}, {
+            managedGroups,
+        });
+        window.dispatchEvent(new CustomEvent('rediff:managed-groups-updated', { detail: { groups: managedGroups } }));
+
         ensureSidebarActions(api, auth);
         renderManagedGroups(api, auth);
 
@@ -643,6 +697,8 @@ const installManagedParticipantsHeading = (api, _converse) => {
 };
 
 const ensureSidebarActions = (api, auth) => {
+    if (!isAuthenticatedSession(api)) return false;
+
     const pane = document.querySelector('#controlbox .controlbox-pane, converse-controlbox .controlbox-pane, #controlbox, converse-controlbox');
     const roster = document.querySelector('#converse-roster, converse-roster');
     if (!pane || !roster) return false;
@@ -745,10 +801,38 @@ const installNativeEntryBridge = (api, auth) => {
 };
 
 const syncWorkspaceSurface = (api, _converse, actions, auth) => {
+    if (!isAuthenticatedSession(api)) {
+        setRediffAuthState(false);
+        rediffSurface.overlay?.remove?.();
+        rediffSurface.workspace?.remove?.();
+        rediffSurface = { overlay: null, workspace: null };
+        document.body.classList.remove('rediff-workspace-mounted');
+        return rediffSurface;
+    }
+
+    setRediffAuthState(true);
     const overlay = defineRediffOverlay(api, _converse, actions);
     const workspace = mountRediffWorkspace(api, _converse, actions, auth);
+    rediffSurface = { overlay, workspace };
     window.rediffConverse = Object.assign(window.rediffConverse || {}, { overlay, workspace });
-    return { overlay, workspace };
+    return rediffSurface;
+};
+
+const clearRediffSurface = (auth, clearToken = false) => {
+    if (clearToken) {
+        auth?.clearSearchToken?.();
+    }
+    setRediffAuthState(false);
+    rediffSurface.overlay?.remove?.();
+    rediffSurface.workspace?.remove?.();
+    rediffSurface = { overlay: null, workspace: null };
+    const sidebarActions = document.querySelector('.rediff-sidebar-actions');
+    if (sidebarActions) sidebarActions.remove();
+    document.querySelector('#chatrooms')?.classList.remove('rediff-native-chatrooms-hidden');
+    document.body.classList.remove('rediff-workspace-mounted');
+    if (window.rediffConverse) {
+        window.rediffConverse = Object.assign(window.rediffConverse, { overlay: null, workspace: null });
+    }
 };
 
 if (!window.rediffNewChatPluginLoaded) {
@@ -777,6 +861,7 @@ if (!window.rediffNewChatPluginLoaded) {
             });
 
             const auth = createRediffAuth(api);
+            installManagedGroupModalOverride(api);
             const workspaceActions = {
                 openNewChat: (ev) => openRediffNewChat(api, ev),
                 openGroups: (ev) => openRediffGroups(api, ev),
@@ -788,6 +873,10 @@ if (!window.rediffNewChatPluginLoaded) {
             };
             window.rediffConverse.groups = {
                 open: (ev) => openRediffGroups(api, ev),
+                openManaged: (mucJid, ev) => {
+                    const group = managedGroups.find((item) => getGroupKey(item) === getGroupKey({ muc_jid: mucJid }));
+                    return group ? openManagedGroupFromSidebar(api, auth, group, ev) : null;
+                },
                 openParticipants: (mucJid, ev) => openRediffParticipants(api, mucJid, ev),
                 refreshSidebar: () => syncManagedGroupsToSidebar(api, auth),
             };
@@ -798,7 +887,6 @@ if (!window.rediffNewChatPluginLoaded) {
 
             defineRediffNewChatModal(api, auth);
             defineRediffGroupsModal(api, auth);
-            syncWorkspaceSurface(api, this._converse, workspaceActions, auth);
             installNativeEntryBridge(api, auth);
             installManagedParticipantsHeading(api, this._converse);
             installUploadURLRewrite(api, this._converse);
@@ -809,7 +897,11 @@ if (!window.rediffNewChatPluginLoaded) {
 
             api.listen.on('initialized', () => {
                 installTenantGuards(api);
-                syncWorkspaceSurface(api, this._converse, workspaceActions, auth);
+                if (isAuthenticatedSession(api)) {
+                    syncWorkspaceSurface(api, this._converse, workspaceActions, auth);
+                } else {
+                    clearRediffSurface(auth);
+                }
                 installManagedParticipantsHeading(api, this._converse);
                 installUploadURLRewrite(api, this._converse);
                 installImageMessageRendering(api, this._converse);
@@ -825,14 +917,35 @@ if (!window.rediffNewChatPluginLoaded) {
                 installNativeImageUploadPreview();
                 window.setTimeout(() => syncManagedGroupsToSidebar(api, auth), 500);
             });
+            api.listen.on('reconnected', () => {
+                installTenantGuards(api);
+                auth.bootstrapStoredSearchToken();
+                syncWorkspaceSurface(api, this._converse, workspaceActions, auth);
+                installManagedParticipantsHeading(api, this._converse);
+                installUploadURLRewrite(api, this._converse);
+                installImageMessageRendering(api, this._converse);
+                installNativeImageUploadPreview();
+                window.setTimeout(() => syncManagedGroupsToSidebar(api, auth), 500);
+            });
             api.listen.on('chatBoxesFetched', () => {
+                setRediffAuthState(true);
                 syncWorkspaceSurface(api, this._converse, workspaceActions, auth);
                 installManagedParticipantsHeading(api, this._converse);
                 installNativeImageUploadPreview();
             });
+            api.listen.on('disconnected', () => clearRediffSurface(auth, true));
+            api.listen.on('logout', () => clearRediffSurface(auth, true));
+            api.listen.on('clearSession', () => clearRediffSurface(auth, true));
 
-            auth.bootstrapStoredSearchToken();
+            window.setTimeout(() => syncWorkspaceSurface(api, this._converse, workspaceActions, auth), 500);
+            window.setTimeout(() => syncWorkspaceSurface(api, this._converse, workspaceActions, auth), 1500);
+            window.setTimeout(() => syncWorkspaceSurface(api, this._converse, workspaceActions, auth), 3000);
             window.setTimeout(() => syncManagedGroupsToSidebar(api, auth), 1500);
+            window.setInterval(() => syncManagedGroupsToSidebar(api, auth), 30000);
+            window.addEventListener('focus', () => syncManagedGroupsToSidebar(api, auth));
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) syncManagedGroupsToSidebar(api, auth);
+            });
         },
     });
 }

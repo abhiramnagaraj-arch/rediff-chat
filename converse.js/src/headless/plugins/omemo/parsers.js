@@ -417,6 +417,7 @@ async function decryptOMEMO2Message(stanza, attrs, chatbox) {
         const marker = getChatMarker(content);
         if (marker) {
             attrs.is_marker = true;
+            attrs.marker = marker.localName;
             attrs.marker_id = marker.getAttribute('id');
         }
         if (sizzle(`markable[xmlns="${Strophe.NS.MARKERS}"]`, content).length) {

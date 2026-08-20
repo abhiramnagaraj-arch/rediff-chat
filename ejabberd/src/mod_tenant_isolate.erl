@@ -104,19 +104,24 @@ is_muc_component(Comp, Parent) ->
     Comp =:= << "conference.", Parent/binary >>.
 
 ensure_room_table() ->
-    case catch mnesia:add_table_copy(?ROOM_TABLE, node(), ram_copies) of
+    case catch mnesia:create_table(?ROOM_TABLE, [
+        {attributes, [room_jid, tenant]},
+        {type, set},
+        {disc_copies, [node()]}
+    ]) of
         {atomic, ok} -> ok;
-        {aborted, {already_exists, ?ROOM_TABLE}} -> ok;
+        {aborted, {already_exists, ?ROOM_TABLE}} -> ensure_room_table_disc_copy();
         _ ->
-            case catch mnesia:create_table(?ROOM_TABLE, [
-                {attributes, [room_jid, tenant]},
-                {type, set},
-                {ram_copies, [node()]}
-            ]) of
+            case catch mnesia:add_table_copy(?ROOM_TABLE, node(), disc_copies) of
                 {atomic, ok} -> ok;
-                {aborted, {already_exists, ?ROOM_TABLE}} -> ok;
-                _ -> ok
+                {aborted, {already_exists, ?ROOM_TABLE}} -> ensure_room_table_disc_copy();
+                _ -> ensure_room_table_disc_copy()
             end
+    end.
+
+ensure_room_table_disc_copy() ->
+    case catch mnesia:change_table_copy_type(?ROOM_TABLE, node(), disc_copies) of
+        _ -> ok
     end.
 
 resolve_muc_tenant(LUserFrom, FromDomain, LUserTo, ToDomain) ->

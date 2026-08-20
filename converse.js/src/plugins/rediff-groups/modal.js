@@ -56,6 +56,13 @@ export class RediffGroupsModal extends HTMLElement {
     }
 
     show() {
+        if (!this.api?.connection?.connected?.() || !getCurrentJid(this.api)) {
+            this.status = 'Please log in to manage groups';
+            this.participantStatus = 'Please log in to manage groups';
+            this.render();
+            return;
+        }
+
         const container = document.querySelector('#converse-modals') || document.body;
         if (!this.isConnected) container.append(this);
         document.body.classList.add('rediff-modal-open');
@@ -95,6 +102,10 @@ export class RediffGroupsModal extends HTMLElement {
     }
 
     async fetchJson(url, options = {}) {
+        if (!this.api?.connection?.connected?.() || !getCurrentJid(this.api)) {
+            throw new Error('Please log in to manage groups');
+        }
+
         const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
         const { response, missingToken } = await this.auth.authenticatedFetch(url, { ...options, headers });
         if (missingToken) throw new Error('Please log out and log in again to enable groups');
@@ -356,6 +367,12 @@ export class RediffGroupsModal extends HTMLElement {
         try {
             this.setParticipantStatus('Exiting group...');
             await this.fetchJson(`${GROUPS_URL}/${group.id}/members/${encodeURIComponent(jid)}`, { method: 'DELETE' });
+            try {
+                const bookmark = this.api?.bookmarks?.get ? await this.api.bookmarks.get(group.muc_jid) : null;
+                await bookmark?.destroy?.();
+            } catch (error) {
+                console.warn('Unable to clear managed group bookmark on exit', error);
+            }
             await this.closeOpenRoom(group.muc_jid, 'Exited group');
             this.refreshManagedSidebar();
             this.close();

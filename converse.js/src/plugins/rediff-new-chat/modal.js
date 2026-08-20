@@ -1,4 +1,4 @@
-import { getBareJid, getCurrentTenant, isSameTenantJid, isSameTenantResult, showToast } from '../rediff-shared/index.js';
+import { getBareJid, getCurrentJid, getCurrentTenant, isSameTenantJid, isSameTenantResult, showToast } from '../rediff-shared/index.js';
 
 const escapeHTML = (value) =>
     String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -29,6 +29,13 @@ export class RediffNewChatModal extends HTMLElement {
     }
 
     show() {
+        if (!this.api?.connection?.connected?.() || !getCurrentJid(this.api)) {
+            this.status = 'Please log in to start a new chat';
+            this.results = [];
+            this.render();
+            return;
+        }
+
         const container = document.querySelector('#converse-modals') || document.body;
         if (!this.isConnected) container.append(this);
 
@@ -60,6 +67,11 @@ export class RediffNewChatModal extends HTMLElement {
     }
 
     async searchAndRender() {
+        if (!this.api?.connection?.connected?.() || !getCurrentJid(this.api)) {
+            this.setStatus('Please log in to start a new chat');
+            return;
+        }
+
         const query = this.querySelector('input[type="search"]')?.value.trim() || '';
         this.results = [];
 
@@ -96,6 +108,11 @@ export class RediffNewChatModal extends HTMLElement {
     }
 
     async addAndOpen(result) {
+        if (!this.api?.connection?.connected?.() || !getCurrentJid(this.api)) {
+            this.setStatus('Please log in to start a new chat');
+            return;
+        }
+
         const jid = getBareJid(result?.jid);
         if (!isSameTenantResult(this.api, result) || !isSameTenantJid(this.api, jid)) {
             showToast(this.api, 'rediff-cross-tenant-blocked', 'danger', 'Cross-tenant contacts are not allowed');

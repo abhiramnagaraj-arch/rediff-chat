@@ -10,7 +10,10 @@ export const getDomainFromJid = (jid) => {
     return bare.includes('@') ? bare.split('@').pop() : '';
 };
 
-export const getCurrentJid = (api) => getBareJid(api?.user?.jid?.());
+export const getCurrentJid = (api) => {
+    const connection = api?.connection?.get?.();
+    return getBareJid(api?.user?.jid?.() || connection?.jid || api?.settings?.get?.("jid"));
+};
 
 export const getCurrentTenant = (api) => getTenantFromJid(getCurrentJid(api));
 

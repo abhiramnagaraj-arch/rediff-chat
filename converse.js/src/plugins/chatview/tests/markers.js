@@ -6,6 +6,42 @@ const { Strophe, u, stx } = converse.env;
 
 describe('A XEP-0333 Chat Marker', function () {
     it(
+        'marks outgoing direct messages so displayed receipts can come back',
+        mock.initConverse(converse, ['chatBoxesFetched'], {}, async function (_converse) {
+            const { api } = _converse;
+            await mock.waitForRoster(_converse, 'current', 1);
+            const contact_jid = mock.cur_names[0].replace(/ /g, '.').toLowerCase() + '@montague.lit';
+            await mock.openChatBoxFor(_converse, contact_jid);
+            const view = _converse.chatboxviews.get(contact_jid);
+            const textarea = view.querySelector('textarea.chat-textarea');
+            const sent_stanzas = [];
+
+            spyOn(api.connection.get(), 'send').and.callFake((stanza) => sent_stanzas.push(stanza));
+
+            textarea.value = 'Please confirm receipt';
+            const message_form = view.querySelector('converse-message-form');
+            message_form.onKeyDown({
+                target: textarea,
+                preventDefault: function preventDefault() {},
+                key: 'Enter',
+            });
+
+            const getSentMessage = () =>
+                sent_stanzas
+                .map((s) => (u.isElement(s) ? s : s.nodeTree))
+                .filter((s) => s.nodeName === 'message')
+                .find((msg) => msg.querySelector('body')?.textContent?.trim() === 'Please confirm receipt');
+
+            await u.waitUntil(() => !!getSentMessage());
+            const sent_message = getSentMessage();
+
+            expect(sent_message).toBeDefined();
+            expect(sent_message.querySelector('markable[xmlns="urn:xmpp:chat-markers:0"]')).toBeTruthy();
+            expect(sent_message.querySelector('request[xmlns="urn:xmpp:receipts"]')).toBeTruthy();
+        }),
+    );
+
+    it(
         'is sent when a markable message is received from a roster contact',
         mock.initConverse(converse, [], {}, async function (_converse) {
             await mock.waitForRoster(_converse, 'current', 1);
@@ -71,6 +107,42 @@ describe('A XEP-0333 Chat Marker', function () {
                     to="someone@montague.lit" type="chat">
                 <displayed xmlns="urn:xmpp:chat-markers:0" id="${sent_messages[1].querySelector('displayed')?.getAttribute('id')}"/>
             </message>`);
+        }),
+    );
+
+    it(
+        'marks my sent message as read when a displayed marker is received',
+        mock.initConverse(converse, ['chatBoxesFetched'], {}, async function (_converse) {
+            await mock.waitForRoster(_converse, 'current', 1);
+            const contact_jid = mock.cur_names[0].replace(/ /g, '.').toLowerCase() + '@montague.lit';
+            await mock.openChatBoxFor(_converse, contact_jid);
+            const view = _converse.chatboxviews.get(contact_jid);
+            const textarea = view.querySelector('textarea.chat-textarea');
+            textarea.value = 'But soft, what light through yonder airlock breaks?';
+            const message_form = view.querySelector('converse-message-form');
+            message_form.onKeyDown({
+                target: textarea,
+                preventDefault: function preventDefault() {},
+                key: 'Enter',
+            });
+            const chatbox = _converse.chatboxes.get(contact_jid);
+            await new Promise((resolve) => view.model.messages.once('rendered', resolve));
+
+            const msg_obj = chatbox.messages.models[0];
+            const msg_id = msg_obj.get('msgid');
+            const marker = stx`
+                <message from="${contact_jid}"
+                         to="${_converse.jid}"
+                         type="chat"
+                         xmlns="jabber:client">
+                    <displayed xmlns="urn:xmpp:chat-markers:0" id="${msg_id}"/>
+                </message>`;
+
+            _converse.api.connection.get()._dataRecv(mock.createRequest(_converse, marker));
+            await u.waitUntil(() => !!msg_obj.get('marker_displayed'));
+
+            expect(msg_obj.get('marker_displayed')).toEqual(jasmine.any(String));
+            expect(view.querySelectorAll('.chat-msg__receipt-group--read').length).toBe(1);
         }),
     );
 

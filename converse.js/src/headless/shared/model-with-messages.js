@@ -840,14 +840,6 @@ export default function ModelWithMessages(BaseModel) {
                 return;
             }
 
-            // Don't send chat markers to contacts that are not subscribed
-            // to our presence.
-            const contact = await api.contacts.get(this.get('jid'));
-            const subscription = contact?.get('subscription');
-            if (!contact || subscription === 'none' || subscription === 'to') {
-                return;
-            }
-
             if (msg?.get('is_markable') || force) {
                 const from_jid = Strophe.getBareJidFromJid(msg.get('from'));
                 sendMarker(from_jid, msg.get('msgid'), type, msg.get('type'));
@@ -874,7 +866,7 @@ export default function ModelWithMessages(BaseModel) {
                 } else if (this.isHidden()) {
                     this.incrementUnreadMsgsCounter(message);
                 } else {
-                    this.sendMarkerForMessage(message);
+                    this.sendMarkerForMessage(message, 'displayed', true);
                 }
             }
         }
@@ -955,9 +947,30 @@ export default function ModelWithMessages(BaseModel) {
             });
         }
 
+        /**
+         * Returns the most recent incoming direct-chat message that can be
+         * acknowledged as displayed.
+         * @returns {BaseMessage|undefined}
+         */
+        getLastIncomingMessage() {
+            return [...this.messages.models]
+                .reverse()
+                .find((message) => message.get('sender') === 'them' && !message.get('is_archived') && !message.get('is_carbon'));
+        }
+
+        /**
+         * Sends a XEP-0333 displayed marker for the newest incoming message, if any.
+         */
+        sendDisplayedMarkerForLastIncomingMessage() {
+            const message = this.getLastIncomingMessage();
+            if (message) {
+                this.sendMarkerForMessage(message, 'displayed', true);
+            }
+        }
+
         clearUnreadMsgCounter() {
             if (this.get('num_unread') > 0) {
-                this.sendMarkerForMessage(this.messages.last());
+                this.sendDisplayedMarkerForLastIncomingMessage();
                 u.safeSave(this, { num_unread: 0 });
             }
         }
@@ -1038,6 +1051,8 @@ export default function ModelWithMessages(BaseModel) {
                 type,
             } = message.attributes;
             const reply_fallback = message.get('fallback')?.[Strophe.NS.REPLY];
+            const should_request_chat_markers =
+                type === 'chat' && api.settings.get('send_chat_markers')?.length && !is_encrypted;
 
             const stanza = stx`
                 <message xmlns="jabber:client"
@@ -1048,6 +1063,7 @@ export default function ModelWithMessages(BaseModel) {
                     ${body ? stx`<body>${body}</body>` : ''}
                     ${!is_encrypted ? stx`<active xmlns="${Strophe.NS.CHATSTATES}"/>` : ''}
                     ${type === 'chat' ? stx`<request xmlns="${Strophe.NS.RECEIPTS}"></request>` : ''}
+                    ${should_request_chat_markers ? stx`<markable xmlns="${Strophe.NS.MARKERS}"></markable>` : ''}
                     ${!is_encrypted && oob_url ? stx`<x xmlns="${Strophe.NS.OUTOFBAND}"><url>${oob_url}</url></x>` : ''}
                     ${!is_encrypted && is_spoiler ? stx`<spoiler xmlns="${Strophe.NS.SPOILER}">${spoiler_hint ?? ''}</spoiler>` : ''}
                     ${
