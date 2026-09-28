@@ -1,0 +1,398 @@
+# Rediff Chat: Enterprise Architecture Design
+
+## 1. Enterprise Architecture Overview
+
+The Rediff Chat platform is a hybrid architecture designed for massive scale and clean separation of concerns. It leverages **ejabberd** as a high-performance XMPP messaging engine and a custom **Rediff Platform Ecosystem** (Microservices + PostgreSQL) to handle business logic, identity, and state.
+
+### Core Architectural Principles
+* **Rediff Platform Owns:** Identity, Authentication, Profiles, Devices, Auditing, Compliance.
+* **Ejabberd Owns:** XMPP Messaging, Presence, Contact Lists (Roster), Routing, Sessions, Chat Rooms (MUC).
+
+### High-Level Component Diagram
+```mermaid
+graph TD
+    %% Clients
+    C[XMPP / Web / Mobile Clients]
+
+    %% Rediff Platform Services
+    subgraph Rediff Platform Ecosystem
+        Auth[Auth Service]
+        UserSvc[User & Profile Service]
+        AuditSvc[Audit & Compliance Service]
+        PushSvc[Push Notification Service]
+        Media[Media / File Service]
+        
+        DB[(Rediff PostgreSQL)]
+        ObjStore[(S3 / MinIO)]
+    end
+
+    %% Ejabberd Cluster
+    subgraph Ejabberd Cluster
+        Ejabberd[ejabberd Core]
+        ExtAuth[External Auth Module]
+        Mnesia[(Mnesia DB)]
+    end
+
+    %% Message Broker
+    Broker[[Apache Kafka / RabbitMQ]]
+
+    %% Connections
+    C -->|XMPP/WebSockets| Ejabberd
+    C -->|HTTPS/REST| Auth
+    C -->|HTTPS/REST| UserSvc
+    C -->|HTTPS/REST| Media
+    
+    Ejabberd -->|Internal| Mnesia
+    ExtAuth -.->|REST / DB lookup| Auth
+    
+    UserSvc --> DB
+    Auth --> DB
+    AuditSvc --> DB
+    Media --> ObjStore
+    
+    %% Eventing
+    Ejabberd -->|Webhooks / Hooks| Broker
+    UserSvc -->|Events| Broker
+    Broker --> PushSvc
+    Broker --> AuditSvc
+```
+
+## 2. Table Ownership Matrix
+
+| Data Domain | Table / Entity | Owner | Storage Layer |
+| :--- | :--- | :--- | :--- |
+| **Contacts** | `roster` | ejabberd | Mnesia |
+| **Active Connections** | `session` | ejabberd | Mnesia |
+| **Routing State** | `route` | ejabberd | Mnesia |
+| **Offline Delivery** | `offline_msg` | ejabberd | Mnesia |
+| **Room Metadata** | `muc_room` | ejabberd | Mnesia |
+| **Room Runtime** | `muc_online_room`| ejabberd | Mnesia |
+| **Master Identity** | `users` | Rediff | PostgreSQL |
+| **Authentication** | `user_auth` | Rediff | PostgreSQL |
+| **User Profile** | `user_profile` | Rediff | PostgreSQL |
+| **Devices/Push** | `notification_devices` | Rediff | PostgreSQL |
+| **Compliance** | `audit_log` | Rediff | PostgreSQL |
+| **History** | `message_archive`| Rediff | PostgreSQL |
+| **Read Receipts** | `message_receipts` | Rediff | PostgreSQL |
+
+## 3. PostgreSQL Schema Design
+
+This is the target state schema for the Rediff PostgreSQL database. It serves as the source of truth for business and identity data.
+
+```sql
+-- Master Identity Store
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(255) UNIQUE NOT NULL, -- Maps to XMPP node (e.g., 'alice')
+    email VARCHAR(255) UNIQUE NOT NULL,
+    status VARCHAR(50) DEFAULT 'ACTIVE', -- ACTIVE, SUSPENDED, DELETED
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Authentication Source of Truth
+CREATE TABLE user_auth (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    password_hash VARCHAR(255) NOT NULL,
+    last_login_at TIMESTAMP WITH TIME ZONE,
+    password_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    account_locked BOOLEAN DEFAULT FALSE,
+    failed_attempts INT DEFAULT 0
+);
+
+-- Profile Data (Replaces vCard)
+CREATE TABLE user_profile (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    display_name VARCHAR(255),
+    avatar_url VARCHAR(1024),
+    phone VARCHAR(50),
+    designation VARCHAR(255),
+    bio TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Notification Devices (Push)
+CREATE TABLE notification_devices (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    platform VARCHAR(50) NOT NULL, -- 'ANDROID', 'IOS', 'WEB'
+    device_token VARCHAR(1024) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, device_token)
+);
+
+-- Compliance & Security Logs
+CREATE TABLE audit_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_type VARCHAR(100) NOT NULL, -- e.g., 'USER_LOGIN', 'MESSAGE_DELETED'
+    actor UUID REFERENCES users(id),
+    target VARCHAR(255),
+    payload_json JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Long Term Storage (Historical)
+CREATE TABLE message_archive (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    message_id VARCHAR(255) UNIQUE NOT NULL, -- Originating XMPP stanza ID
+    sender_jid VARCHAR(255) NOT NULL,
+    recipient_jid VARCHAR(255) NOT NULL,
+    message_body TEXT,
+    sent_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Read Receipts Tracker
+CREATE TABLE message_receipts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    message_id VARCHAR(255) REFERENCES message_archive(message_id) ON DELETE CASCADE,
+    recipient_jid VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL, -- 'SENT', 'DELIVERED', 'READ'
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 3.1 Entity-Relationship (ER) Diagram
+
+```mermaid
+erDiagram
+    USERS ||--o| USER_AUTH : has
+    USERS ||--o| USER_PROFILE : has
+    USERS ||--o{ NOTIFICATION_DEVICES : registers
+    USERS ||--o{ AUDIT_LOG : generates
+    
+    USERS {
+        UUID id PK
+        VARCHAR username UK
+        VARCHAR email UK
+        VARCHAR status
+        TIMESTAMP created_at
+    }
+    
+    USER_AUTH {
+        UUID user_id PK,FK
+        VARCHAR password_hash
+        TIMESTAMP last_login_at
+        BOOLEAN account_locked
+    }
+    
+    USER_PROFILE {
+        UUID user_id PK,FK
+        VARCHAR display_name
+        VARCHAR avatar_url
+        VARCHAR phone
+        VARCHAR designation
+    }
+    
+    NOTIFICATION_DEVICES {
+        UUID id PK
+        UUID user_id FK
+        VARCHAR platform
+        VARCHAR device_token
+    }
+    
+    AUDIT_LOG {
+        UUID id PK
+        VARCHAR event_type
+        UUID actor FK
+        JSONB payload_json
+        TIMESTAMP created_at
+    }
+
+    MESSAGE_ARCHIVE ||--o{ MESSAGE_RECEIPTS : tracks
+    
+    MESSAGE_ARCHIVE {
+        UUID id PK
+        VARCHAR message_id UK
+        VARCHAR sender_jid
+        VARCHAR recipient_jid
+        TEXT message_body
+        TIMESTAMP sent_at
+    }
+    
+    MESSAGE_RECEIPTS {
+        UUID id PK
+        VARCHAR message_id FK
+        VARCHAR recipient_jid
+        VARCHAR status
+    }
+```
+
+## 4. Data Flow Diagrams
+
+### 4.1 Authentication Flow (External Auth)
+Goal: Remove password ownership from ejabberd.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Ejabberd
+    participant RediffAuth as Rediff Auth Service
+    participant DB as PostgreSQL (user_auth)
+    
+    Client->>Ejabberd: Connect & Authenticate (alice, password)
+    Ejabberd->>RediffAuth: POST /api/auth {username, password}
+    RediffAuth->>DB: Query user_auth by username
+    DB-->>RediffAuth: Return password_hash
+    RediffAuth->>RediffAuth: Verify Hash
+    RediffAuth-->>Ejabberd: 200 OK (Auth Success)
+    Ejabberd-->>Client: Auth Successful (Bind & Session)
+```
+
+### 4.2 User Provisioning Flow
+Goal: Rediff is the master of identity. Ejabberd acts as a downstream consumer.
+
+```mermaid
+sequenceDiagram
+    participant Admin as HR / Admin Portal
+    participant UserSvc as User Service
+    participant DB as PostgreSQL
+    participant Broker as Kafka
+    participant Ejabberd as Ejabberd
+    
+    Admin->>UserSvc: Create User (Alice)
+    UserSvc->>DB: Insert `users`, `user_profile`
+    UserSvc->>Broker: Publish Event: `UserCreated`
+    Broker-->>Ejabberd: Consume `UserCreated` (or API hook)
+    Ejabberd->>Ejabberd: Register user internally (optional if relying entirely on ext_auth)
+    Ejabberd->>Ejabberd: Init roster state
+    UserSvc-->>Admin: User Created Successfully
+```
+
+### 4.3 Message Delivery Tracking Flow
+Support for Sent, Delivered, and Read statuses (XEP-0184 & XEP-0333).
+
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant Ejabberd
+    participant ArchiveSvc as Archive / Tracking Service
+    participant DB as PostgreSQL
+    participant Bob
+    
+    %% Message Sending
+    Alice->>Ejabberd: Send Message (Message ID: 123)
+    Ejabberd->>Bob: Deliver Message 123
+    Ejabberd-->>ArchiveSvc: Hook/Event: Message 123 Sent
+    ArchiveSvc->>DB: Insert `message_archive` & `message_receipts` (Status=SENT)
+    
+    %% Delivery Receipt
+    Bob->>Ejabberd: Delivery Receipt (Message 123)
+    Ejabberd->>Alice: Forward Delivery Receipt
+    Ejabberd-->>ArchiveSvc: Hook/Event: Message 123 Delivered
+    ArchiveSvc->>DB: Update `message_receipts` (Status=DELIVERED)
+    
+    %% Read Receipt
+    Bob->>Ejabberd: Read Display Marker (Message 123)
+    Ejabberd->>Alice: Forward Read Marker
+    Ejabberd-->>ArchiveSvc: Hook/Event: Message 123 Read
+    ArchiveSvc->>DB: Update `message_receipts` (Status=READ)
+```
+
+### 4.4 Push Notification Flow
+For offline mobile users (APNs/FCM).
+
+```mermaid
+sequenceDiagram
+    participant Ejabberd
+    participant Broker as Kafka
+    participant PushSvc as Push Notification Service
+    participant DB as PostgreSQL (Devices)
+    participant FCM as APNs / FCM
+    
+    Ejabberd->>Ejabberd: Message to offline Bob
+    Ejabberd->>Ejabberd: Store in `offline_msg` (Mnesia)
+    Ejabberd->>Broker: Publish `MessageDeliveredOffline` (Hook)
+    Broker-->>PushSvc: Consume Event
+    PushSvc->>DB: Query `notification_devices` for Bob
+    DB-->>PushSvc: Return Device Tokens
+    PushSvc->>FCM: Send Push Notification Payload
+    FCM-->>PushSvc: 200 OK
+```
+
+### 4.5 Audit Logging Flow
+Ensuring compliance and forensic capability.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Ejabberd
+    participant Broker as Kafka
+    participant AuditSvc as Audit Service
+    participant DB as PostgreSQL (audit_log)
+    
+    User->>Ejabberd: Join MUC Room (Confidential_Chat)
+    Ejabberd->>Broker: Publish `UserJoinedRoom` Event
+    Broker-->>AuditSvc: Consume Event
+    AuditSvc->>DB: Insert into `audit_log`
+```
+
+## 5. Event-Driven Architecture
+
+Utilizing a Message Broker (e.g., **Apache Kafka** or RabbitMQ) decouples Ejabberd from the Rediff Application ecosystem.
+
+### Event Definitions
+
+| Event Name | Producer | Consumers | Description |
+| :--- | :--- | :--- | :--- |
+| `UserCreated` | Rediff User Service | Ejabberd, Audit | Triggers roster init, internal state prep |
+| `UserUpdated` | Rediff User Service | Ejabberd, Search | VCard/Profile cache invalidation |
+| `MessageSent` | Ejabberd (mod_kafka/hooks) | Archive Service, Audit | Long-term archiving |
+| `MessageDeliveredOffline` | Ejabberd | Push Notification Service | Triggers FCM/APNs |
+| `RoomCreated` | Ejabberd / API | Audit, Search | Logs creation, indexes metadata |
+
+### Sample Payload: `UserCreated`
+```json
+{
+  "eventId": "uuid-1234",
+  "eventType": "UserCreated",
+  "timestamp": "2026-06-05T10:00:00Z",
+  "payload": {
+    "userId": "uuid-abc",
+    "username": "alice",
+    "email": "alice@rediff.com",
+    "domain": "chat.rediff.com"
+  }
+}
+```
+
+### Resiliency Strategy
+- **Retry Mechanism**: Consumers should implement exponential backoff for transient database or API failures.
+- **Dead-Letter Queues (DLQ)**: If a message fails processing (e.g., Push service cannot reach FCM after 5 retries), it routes to a DLQ topic (`push_dlq`). Alerts should be configured on the DLQ for manual intervention or automated replay.
+
+## 6. Future Scalability Roadmap
+
+1. **Search Architecture**: 
+   - Implement **Elasticsearch / OpenSearch**.
+   - Consume `MessageSent` and `RoomCreated` events from Kafka to index messages and room metadata in near real-time, completely offloading search queries from ejabberd and PostgreSQL.
+2. **File Sharing (Media)**: 
+   - Ejabberd `mod_http_upload` handles XMPP negotiations. 
+   - Actual files upload directly to **S3 / MinIO** using pre-signed URLs. No binary data passes through Mnesia or PostgreSQL.
+3. **High Availability (HA)**:
+   - **Ejabberd**: Deploy multiple nodes. Mnesia scales horizontally but requires careful network partitioning handling. Ejabberd handles clustering naturally.
+   - **PostgreSQL**: Deploy Primary with asynchronous Read Replicas. Use PgBouncer for connection pooling.
+   - **Message Broker**: Kafka cluster across 3 availability zones.
+
+## 7. Migration Roadmap
+
+Transitioning from the current standalone Ejabberd (Mnesia only) to the Target Architecture:
+
+* **Phase 1: Database Provisioning & Schema Setup**
+  - Stand up Rediff PostgreSQL.
+  - Deploy the schema for Users, Auth, and Profiles.
+* **Phase 2: Identity Migration**
+  - Write a one-off script to read `passwd` from Mnesia and backfill `users` and `user_auth` in PostgreSQL.
+  - Read `vcard` from Mnesia, parse XML, and migrate to `user_profile`.
+* **Phase 3: External Authentication Cutover**
+  - Configure Ejabberd `extauth_program` or `auth_method: http`.
+  - Point Ejabberd authentication to the new Rediff Auth Service.
+  - Verify clients can connect using PostgreSQL auth.
+  - Stop using Mnesia `passwd` table.
+* **Phase 4: Archiving & Auditing Setup**
+  - Introduce Kafka/Message Broker.
+  - Configure ejabberd to emit hooks (e.g., using `mod_http_api` webhooks or a custom Elixir/Erlang module forwarding to Kafka).
+  - Stand up Archive and Audit microservices to consume events and populate PostgreSQL `message_archive` and `audit_log`.
+* **Phase 5: Push Notifications**
+  - Deploy Push Service.
+  - Hook Ejabberd's offline message handler to trigger mobile push events.
